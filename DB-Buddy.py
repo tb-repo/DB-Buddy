@@ -31,7 +31,11 @@ llm = ChatOpenAI(
     openai_api_base="https://api.together.xyz/v1"
 )
 
-conversation = ConversationChain(memory=st.session_state.buffer_memory, llm=llm)
+# Create the ConversationChain with memory
+conversation_chain = ConversationChain(
+    memory=st.session_state.buffer_memory,
+    llm=llm
+)
 
 # Create user interface
 st.title("🗣️ DB-Buddy: Your Database Chatbot")
@@ -48,13 +52,13 @@ if prompt := st.chat_input("Your database question"):  # Prompt for user input a
                 with st.chat_message(message.role):
                     st.write(message.content)
 
-        # If last message is not from AI, generate a new response
-        if not isinstance(st.session_state.messages[-1], AIMessage):
-            with st.chat_message("AI"):
-                with st.spinner("Thinking..."):
-                    response = conversation.predict(input=prompt)
-                    st.write(response)
-                    st.session_state.messages.append(AIMessage(content=response))  # Add response to message history
+        # Generate a new response using the conversation chain
+        with st.chat_message("AI"):
+            with st.spinner("Thinking..."):
+                # Use the conversation chain to predict the response
+                response = conversation_chain.predict(input=prompt)
+                st.write(response)
+                st.session_state.messages.append(AIMessage(content=response))  # Add response to message history
     else:
         # Respond with a message indicating the topic is out of scope
         with st.chat_message("AI"):
