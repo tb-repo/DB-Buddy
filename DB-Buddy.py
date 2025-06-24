@@ -36,29 +36,6 @@ conversation = ConversationChain(memory=st.session_state.buffer_memory, llm=llm)
 st.title("🗣️ DB-Buddy: Your Database Chatbot")
 st.subheader("A one-stop chatbot for all your database-related conversations.")
 
-# Add a small centered background image using HTML and CSS
-st.markdown(
-    """
-    <style>
-    .centered-image {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;  /* Full height of the viewport */
-        background-color: #f0f0f0;  /* Optional background color */
-    }
-    .centered-image img {
-        width: 100px;  /* Set your desired width */
-        height: auto;  /* Maintain aspect ratio */
-    }
-    </style>
-    <div class="centered-image">
-        <img src="DB_Buddy.png" alt="Your Cool Chatbot">
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
 if prompt := st.chat_input("Your database question"):  # Prompt for user input and save to chat history
     st.session_state.messages.append({"role": "buddy", "content": prompt})
 
