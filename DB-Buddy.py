@@ -48,12 +48,12 @@ st.markdown(
         background-color: #f0f0f0;  /* Optional background color */
     }
     .centered-image img {
-        max-width: 100px;  /* Set your desired width */
-        max-height: 100px;  /* Set your desired height */
+        width: 100px;  /* Set your desired width */
+        height: auto;  /* Maintain aspect ratio */
     }
     </style>
     <div class="centered-image">
-        <img src="/DB_Buddy.png" alt="Your Cool Chatbot">
+        <img src="DB_Buddy.png" alt="Your Cool Chatbot">
     </div>
     """,
     unsafe_allow_html=True
