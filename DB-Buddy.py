@@ -40,8 +40,10 @@ if prompt := st.chat_input("Your database question"):  # Prompt for user input a
     st.session_state.messages.append({"role": "buddy", "content": prompt})
 
 for message in st.session_state.messages:  # Display the prior chat messages
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
+    # Only display messages from user and assistant
+    if message["role"] != "system":
+        with st.chat_message(message["role"]):
+            st.write(message["content"])
 
 # If last message is not from DB-Assistant, generate a new response
 if st.session_state.messages[-1]["role"] != "DB-Assistant":
