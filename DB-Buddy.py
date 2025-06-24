@@ -36,6 +36,9 @@ conversation = ConversationChain(memory=st.session_state.buffer_memory, llm=llm)
 st.title("🗣️ DB-Buddy: Your Database Chatbot")
 st.subheader("A one-stop chatbot for all your database-related conversations.")
 
+# Add your cool image here with the correct relative path
+st.image("assets/DB_Buddy.png", caption="Your Cool Chatbot", use_column_width=True)
+
 if prompt := st.chat_input("Your database question"):  # Prompt for user input and save to chat history
     st.session_state.messages.append({"role": "buddy", "content": prompt})
 
