@@ -53,7 +53,7 @@ st.markdown(
     }
     </style>
     <div class="centered-image">
-        <img src="DB_Buddy.png" alt="Your Cool Chatbot">
+        <img src="/DB_Buddy.png" alt="Your Cool Chatbot">
     </div>
     """,
     unsafe_allow_html=True
