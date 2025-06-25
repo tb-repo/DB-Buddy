@@ -8,13 +8,13 @@ system_message="You are a cool and one-stop chatbot as well as buddy for any dat
 # Initialize session state variables
 if 'buffer_memory' not in st.session_state:
     st.session_state.buffer_memory = ConversationBufferWindowMemory(k=3, return_messages=True)
+    st.session_state.buffer_memory.chat_memory.add_message(SystemMessage(content=system_message))
 
 if "messages" not in st.session_state.keys():  # Initialize the chat message history
     st.session_state.messages = [
                 {"role": "DB-Assistant", "content": "How can I help you today?"}
     ]
     
-st.session_state.buffer_memory.chat_memory.add_message(SystemMessage(content=system_message))
 
 # Initialize ChatOpenAI and ConversationChain
 llm = ChatOpenAI(
