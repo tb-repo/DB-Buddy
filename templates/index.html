@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DB-Buddy - AI Database Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-database"></i>
+            <span>DB-Buddy</span>
+        </div>
+        <div class="nav-actions">
+            <button class="nav-btn" onclick="showHome()" id="homeBtn">
+                <i class="fas fa-home"></i> Home
+            </button>
+            <button class="nav-btn" onclick="resetChat()" id="resetBtn" style="display: none;">
+                <i class="fas fa-refresh"></i> New Chat
+            </button>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <!-- Welcome Screen -->
+        <div class="welcome-screen" id="welcomeScreen">
+            <div class="hero-section">
+                <div class="hero-content">
+                    <h1>Welcome to DB-Buddy</h1>
+                    <p class="hero-subtitle">Your AI-powered database assistant for instant solutions</p>
+                    <div class="hero-features">
+                        <div class="feature-item">
+                            <i class="fas fa-bolt"></i>
+                            <span>Instant Recommendations</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Best Practices</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-clock"></i>
+                            <span>24/7 Available</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="services-section">
+                <h2>How can I assist you today?</h2>
+                <div class="service-cards">
+                    <div class="service-card" onclick="startConversation('troubleshooting')">
+                        <div class="card-icon troubleshooting-icon">
+                            <i class="fas fa-bug"></i>
+                        </div>
+                        <h3>Database Troubleshooting</h3>
+                        <p>Resolve slow queries, connection issues, errors, crashes, and data corruption problems</p>
+                        <div class="card-arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="service-card" onclick="startConversation('query')">
+                        <div class="card-icon query-icon">
+                            <i class="fas fa-code"></i>
+                        </div>
+                        <h3>Query Optimization</h3>
+                        <p>SQL tuning, indexing strategies, execution plans, and query performance improvement</p>
+                        <div class="card-arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="service-card" onclick="startConversation('performance')">
+                        <div class="card-icon performance-icon">
+                            <i class="fas fa-tachometer-alt"></i>
+                        </div>
+                        <h3>Performance Analysis</h3>
+                        <p>CPU, memory, I/O bottleneck analysis, monitoring setup, and performance metrics</p>
+                        <div class="card-arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="service-card" onclick="startConversation('architecture')">
+                        <div class="card-icon architecture-icon">
+                            <i class="fas fa-sitemap"></i>
+                        </div>
+                        <h3>Architecture & Design</h3>
+                        <p>Schema design, normalization, partitioning, replication, and database structure planning</p>
+                        <div class="card-arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="service-card" onclick="startConversation('capacity')">
+                        <div class="card-icon capacity-icon">
+                            <i class="fas fa-server"></i>
+                        </div>
+                        <h3>Capacity Planning</h3>
+                        <p>Hardware sizing, scaling strategies, growth planning, and infrastructure recommendations</p>
+                        <div class="card-arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="service-card" onclick="startConversation('security')">
+                        <div class="card-icon security-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h3>Security & Compliance</h3>
+                        <p>Access control, encryption, auditing, compliance requirements, and data protection</p>
+                        <div class="card-arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat Interface -->
+        <div class="chat-interface" id="chatInterface" style="display: none;">
+            <div class="chat-header">
+                <div class="chat-title">
+                    <i class="fas fa-comments"></i>
+                    <span id="chatTitle">DB Assistant</span>
+                </div>
+                <div class="chat-status">
+                    <div class="status-indicator online"></div>
+                    <span id="aiStatus">Online</span>
+                </div>
+            </div>
+            
+            <!-- Quick Selectors moved to top -->
+            <div class="quick-selectors-top" id="quickSelectors">
+                <div class="selector-row">
+                    <div class="selector-group">
+                        <label>Deployment:</label>
+                        <select id="deploymentSelect" onchange="updateCloudProvider()">
+                            <option value="">Select...</option>
+                            <option value="On-Premises">On-Premises</option>
+                            <option value="Cloud">Cloud</option>
+                            <option value="Hybrid">Hybrid</option>
+                        </select>
+                    </div>
+                    <div class="selector-group" id="cloudProviderGroup" style="display: none;">
+                        <label>Cloud Provider:</label>
+                        <select id="cloudProviderSelect" onchange="updateDatabaseOptions()">
+                            <option value="">Select...</option>
+                            <option value="AWS">AWS</option>
+                            <option value="Azure">Azure</option>
+                            <option value="GCP">Google Cloud</option>
+                            <option value="Oracle Cloud">Oracle Cloud</option>
+                            <option value="IBM Cloud">IBM Cloud</option>
+                        </select>
+                    </div>
+                    <div class="selector-group">
+                        <label>Database System:</label>
+                        <select id="dbSystemSelect">
+                            <option value="">Select...</option>
+                            <option value="MySQL">MySQL</option>
+                            <option value="PostgreSQL">PostgreSQL</option>
+                            <option value="SQL Server">SQL Server</option>
+                            <option value="Oracle">Oracle</option>
+                            <option value="MongoDB">MongoDB</option>
+                            <option value="Redis">Redis</option>
+                            <option value="MariaDB">MariaDB</option>
+                            <option value="Cassandra">Cassandra</option>
+                        </select>
+                    </div>
+                    <div class="selector-group" id="issueTypeGroup">
+                        <label>Issue Type:</label>
+                        <select id="issueTypeSelect">
+                            <option value="">Select...</option>
+                        </select>
+                    </div>
+                    <div class="selector-group">
+                        <label>Environment:</label>
+                        <select id="environmentSelect">
+                            <option value="">Select...</option>
+                            <option value="Development">Development</option>
+                            <option value="Staging">Staging</option>
+                            <option value="Production">Production</option>
+                        </select>
+                    </div>
+                    <button onclick="insertSelections()" class="insert-btn">
+                        <i class="fas fa-plus"></i> Insert
+                    </button>
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                    <div class="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <span class="typing-text">DB-Buddy is thinking...</span>
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <div class="input-wrapper">
+                    <textarea id="userInput" placeholder="Type your message here... (Shift+Enter for new line, Enter to send)" onkeydown="handleKeyPress(event)" rows="1"></textarea>
+                    <button onclick="sendAnswer()" id="sendBtn" class="send-btn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="input-help">
+                    <small><i class="fas fa-info-circle"></i> Use quick selectors above or type details directly</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
