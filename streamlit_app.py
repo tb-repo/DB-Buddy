@@ -3,6 +3,7 @@ import requests
 import json
 from datetime import datetime
 import os
+from memory import ConversationMemory
 
 # Get API keys from Streamlit secrets or environment variables
 def get_api_key(key_name):
@@ -16,6 +17,10 @@ def get_api_key(key_name):
 # Initialize API keys
 GROQ_API_KEY = get_api_key('GROQ_API_KEY')
 HUGGINGFACE_API_KEY = get_api_key('HUGGINGFACE_API_KEY')
+
+# Initialize memory
+if 'memory' not in st.session_state:
+    st.session_state.memory = ConversationMemory('streamlit_conversations.json')
 
 # Set page config
 st.set_page_config(
@@ -31,12 +36,14 @@ if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'current_issue_type' not in st.session_state:
     st.session_state.current_issue_type = None
+if 'show_history' not in st.session_state:
+    st.session_state.show_history = False
 
 # Header
 st.title("🗄️ DB-Buddy - AI Database Assistant")
 st.markdown("Your AI-powered database assistant for instant solutions")
 
-# Sidebar for service selection
+# Sidebar for service selection and history
 with st.sidebar:
     st.header("Select Service")
     
@@ -56,11 +63,48 @@ with st.sidebar:
         index=0 if st.session_state.current_issue_type is None else list(issue_types.keys()).index(st.session_state.current_issue_type)
     )
     
-    if st.button("Start New Conversation"):
-        st.session_state.messages = []
-        st.session_state.current_issue_type = selected_service
-        st.session_state.session_id = f"session_{datetime.now().timestamp()}"
-        st.rerun()
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("New Chat"):
+            st.session_state.messages = []
+            st.session_state.current_issue_type = selected_service
+            st.session_state.session_id = f"session_{datetime.now().timestamp()}"
+            st.session_state.show_history = False
+            st.rerun()
+    
+    with col2:
+        if st.button("History"):
+            st.session_state.show_history = not st.session_state.show_history
+            st.rerun()
+    
+    # Show conversation history
+    if st.session_state.show_history:
+        st.subheader("Past Conversations")
+        conversations = st.session_state.memory.get_all_conversations()
+        
+        if conversations:
+            for conv in conversations[:10]:  # Show last 10 conversations
+                with st.expander(f"{conv['title']} - {conv['timestamp'][:10]}"):
+                    st.write(f"**Preview:** {conv['preview']}")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button(f"Load", key=f"load_{conv['session_id']}"):
+                            # Load conversation
+                            loaded_conv = st.session_state.memory.get_conversation(conv['session_id'])
+                            if loaded_conv:
+                                st.session_state.current_issue_type = loaded_conv['data']['type']
+                                st.session_state.messages = []
+                                # Reconstruct messages from conversation data
+                                for i, answer in enumerate(loaded_conv['data']['answers']):
+                                    st.session_state.messages.append({"role": "user", "content": answer})
+                                st.session_state.show_history = False
+                                st.rerun()
+                    with col2:
+                        if st.button(f"Delete", key=f"del_{conv['session_id']}"):
+                            st.session_state.memory.delete_conversation(conv['session_id'])
+                            st.rerun()
+        else:
+            st.write("No past conversations found.")
 
 # LOV Selectors
 st.subheader("Quick Setup")
@@ -100,26 +144,41 @@ if st.button("Insert Selections"):
         st.rerun()
 
 # Chat Interface
-st.subheader("Chat")
-
-# Display messages
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+if not st.session_state.show_history:
+    st.subheader("Chat")
+    
+    # Display messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
 # Chat input
-if prompt := st.chat_input("Type your message here..."):
-    # Add user message
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    
-    with st.chat_message("user"):
-        st.markdown(prompt)
-    
-    # Generate response (simplified for demo)
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            if st.session_state.current_issue_type:
-                response = f"""## 🔧 Database Analysis & Recommendations
+if not st.session_state.show_history:
+    if prompt := st.chat_input("Type your message here..."):
+        # Add user message
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        # Save to memory
+        conversation_data = {
+            'type': st.session_state.current_issue_type or 'general',
+            'answers': [msg['content'] for msg in st.session_state.messages if msg['role'] == 'user'],
+            'user_selections': {
+                'deployment': deployment,
+                'cloud_provider': cloud_provider,
+                'database': database,
+                'environment': environment
+            }
+        }
+        st.session_state.memory.save_conversation(st.session_state.session_id, conversation_data)
+        
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        # Generate response (simplified for demo)
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                if st.session_state.current_issue_type:
+                    response = f"""## 🔧 Database Analysis & Recommendations
 
 Based on your {st.session_state.current_issue_type} request:
 
@@ -141,11 +200,11 @@ Monitor key performance indicators after implementing changes.
 
 **🛡️ Next Steps:**
 Consult with your DBA team for production implementation."""
-            else:
-                response = "Please select a service type from the sidebar to get started!"
-            
-            st.markdown(response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
+                else:
+                    response = "Please select a service type from the sidebar to get started!"
+                
+                st.markdown(response)
+                st.session_state.messages.append({"role": "assistant", "content": response})
 
 # Instructions
 with st.expander("How to use DB-Buddy"):

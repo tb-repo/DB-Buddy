@@ -62,3 +62,7 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Conversation storage
+conversations.json
+streamlit_conversations.json
