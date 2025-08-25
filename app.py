@@ -1095,7 +1095,11 @@ Keep it conversational and encouraging. No bullet points or rigid structure."""
         conv['step'] += 1
         
         # Save to memory after each interaction
-        self.memory.save_conversation(session_id, conv)
+        # Convert datetime objects to strings for JSON serialization
+        conv_for_memory = conv.copy()
+        if 'timestamp' in conv_for_memory and isinstance(conv_for_memory['timestamp'], datetime):
+            conv_for_memory['timestamp'] = conv_for_memory['timestamp'].isoformat()
+        self.memory.save_conversation(session_id, conv_for_memory)
         
         # Parse LOV selections if present
         if self.contains_lov_selections(answer):
