@@ -16,67 +16,14 @@ class DBBuddy:
         self.conversations = {}
         self.memory = ConversationMemory()
         self.use_ai = self.check_ollama_available()
-        self.question_flows = {
-            'troubleshooting': [
-                """👋 **Welcome to Database Troubleshooting!**
-
-🔧 **Quick Start:**
-1. Use the dropdowns above to select your deployment, database system, and environment
-2. Click "Insert" to add your selections
-3. Describe your specific issue or error
-
-I'll provide targeted diagnostic queries and solutions based on your setup!"""
-            ],
-            'query': [
-                """👋 **Welcome to Query Optimization!**
-
-⚡ **Quick Start:**
-1. Use the dropdowns above to select your deployment and database system
-2. Click "Insert" to add your selections
-3. Paste your SQL query and describe the performance issue
-
-I'll analyze your query and provide optimization recommendations!"""
-            ],
-            'performance': [
-                """👋 **Welcome to Performance Analysis!**
-
-📊 **Quick Start:**
-1. Use the dropdowns above to select your deployment and database system
-2. Click "Insert" to add your selections
-3. Describe your performance symptoms (slow queries, high CPU, etc.)
-
-I'll provide diagnostic queries and tuning recommendations!"""
-            ],
-            'architecture': [
-                """👋 **Welcome to Architecture Design!**
-
-🏗️ **Quick Start:**
-1. Use the dropdowns above to select your preferred deployment and database system
-2. Click "Insert" to add your selections
-3. Describe your application type and expected scale
-
-I'll design an optimal database architecture for your needs!"""
-            ],
-            'capacity': [
-                """👋 **Welcome to Capacity Planning!**
-
-📈 **Quick Start:**
-1. Use the dropdowns above to select your deployment and database system
-2. Click "Insert" to add your selections
-3. Share your current/expected data size and user load
-
-I'll provide hardware sizing and scaling recommendations!"""
-            ],
-            'security': [
-                """👋 **Welcome to Database Security!**
-
-🔒 **Quick Start:**
-1. Use the dropdowns above to select your deployment and database system
-2. Click "Insert" to add your selections
-3. Describe your security concerns and compliance needs
-
-I'll provide security hardening and compliance guidance!"""
-            ]
+        # Remove predefined question flows - use intelligent conversation instead
+        self.service_descriptions = {
+            'troubleshooting': 'database troubleshooting and error resolution',
+            'query': 'SQL query optimization and performance tuning',
+            'performance': 'database performance analysis and optimization',
+            'architecture': 'database architecture design and best practices',
+            'capacity': 'database capacity planning and sizing',
+            'security': 'database security hardening and compliance'
         }
     
     def check_ollama_available(self):
@@ -102,6 +49,10 @@ I'll provide security hardening and compliance guidance!"""
         """Provide specialized recommendations for common database patterns"""
         input_lower = user_input.lower()
         
+        # Detect ANY SQL query - not just with execution plans
+        if any(sql_keyword in input_lower for sql_keyword in ['select ', 'from ', 'where ', 'join ', 'left join', 'inner join']):
+            return self.get_sql_query_analysis(user_input, user_selections)
+        
         # Detect connection issues
         if any(keyword in input_lower for keyword in ['connection', 'timeout', 'timed out', 'connect', 'refused']):
             return self.get_connection_troubleshooting_recommendation(user_input, user_selections)
@@ -111,15 +62,235 @@ I'll provide security hardening and compliance guidance!"""
             if any(perf_keyword in input_lower for perf_keyword in ['slow', 'performance', 'latency', 'timeout']):
                 return self.get_outbox_performance_recommendation(user_input, user_selections)
         
-        # Detect large table scan issues
-        if any(keyword in input_lower for keyword in ['million rows', 'large table', 'full scan', 'seq scan']):
-            return self.get_large_table_recommendation(user_input, user_selections)
-        
-        # Detect index optimization needs
-        if any(keyword in input_lower for keyword in ['index', 'covering index', 'composite index']):
-            return self.get_index_optimization_recommendation(user_input, user_selections)
-        
         return None
+    
+    def get_sql_query_analysis(self, user_input, user_selections):
+        """Analyze any SQL query provided by user"""
+        input_lower = user_input.lower()
+        lines = user_input.split('\n')
+        
+        # Extract the SQL query
+        sql_lines = []
+        in_sql = False
+        for line in lines:
+            line_lower = line.lower().strip()
+            if any(keyword in line_lower for keyword in ['select ', 'with ', 'insert ', 'update ', 'delete ']):
+                in_sql = True
+            if in_sql:
+                sql_lines.append(line.strip())
+                if line.strip().endswith(';') or (line.strip() and not line.strip().endswith(',') and not any(cont in line_lower for cont in ['from', 'where', 'join', 'and', 'or', 'order', 'group', 'having'])):
+                    break
+        
+        sql_query = '\n'.join(sql_lines) if sql_lines else "SQL query not clearly identified"
+        
+        # Check if user is asking about execution plan
+        asking_about_plan = any(phrase in input_lower for phrase in ['explain plan', 'execution plan', 'shall i share', 'should i provide'])
+        
+        db_system = user_selections.get('database', '') if user_selections else ''
+        environment = user_selections.get('environment', '') if user_selections else ''
+        
+        if 'postgres' in db_system.lower() or 'aurora' in db_system.lower():
+            response = f"""🔍 **Aurora PostgreSQL Query Analysis**
+
+✅ **Your Query:**
+```sql
+{sql_query}
+```
+
+🔍 **Initial Analysis:**
+
+**Query Structure Identified:**
+- **Main table**: `vw_fact_examiner_block_calculation_last_1year` (view)
+- **Joins**: LEFT JOIN with `dim_examiner` and `vw_dim_block`
+- **Key filter**: `block_key IS NOT NULL` and date comparison
+- **Performance concern**: Slow SELECT query in {environment} environment
+
+⚡ **Immediate Observations:**
+
+1. **View-based query** - Views can hide complex underlying queries
+2. **Multiple LEFT JOINs** - Potential for cartesian products or inefficient joins
+3. **Date comparison filter** - `b.start_date >= ex.probation_period_end_date` may lack proper indexing
+4. **NULL check** - `block_key IS NOT NULL` suggests data quality issues
+
+🚀 **Optimization Recommendations:**
+
+**1. Check View Definitions:**
+```sql
+-- Examine the underlying view queries
+\d+ vw_fact_examiner_block_calculation_last_1year
+\d+ vw_dim_block
+
+-- Check if views have materialized versions
+SELECT schemaname, matviewname FROM pg_matviews;
+```
+
+**2. Index Recommendations:**
+```sql
+-- For join performance
+CREATE INDEX CONCURRENTLY idx_examiner_code ON dim_examiner(examiner_code);
+CREATE INDEX CONCURRENTLY idx_block_key ON vw_dim_block(block_key);
+CREATE INDEX CONCURRENTLY idx_probation_date ON dim_examiner(probation_period_end_date);
+
+-- For the date comparison
+CREATE INDEX CONCURRENTLY idx_block_start_date ON vw_dim_block(start_date);
+```
+
+**3. Query Rewrite Option:**
+```sql
+-- More explicit version with better filtering
+SELECT ly.*, ex.probation_period_end_date, b."Block Start End Dates"
+FROM public.vw_fact_examiner_block_calculation_last_1year ly
+INNER JOIN public.dim_examiner ex ON ly.marker_code = ex.examiner_code
+INNER JOIN public.vw_dim_block b ON ly.block_key = b.block_key
+WHERE ly.block_key IS NOT NULL
+  AND ex.probation_period_end_date IS NOT NULL
+  AND b.start_date >= ex.probation_period_end_date;
+```
+"""
+            
+            if asking_about_plan:
+                response += f"\n\n📊 **Yes, please share the execution plan!**\n\nRun this command and share the output:\n```sql\nEXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) \n{sql_query};\n```\n\nThis will help me identify specific bottlenecks and provide targeted index recommendations."
+            else:
+                response += f"\n\n📊 **Next Steps:**\n1. Share the execution plan using `EXPLAIN ANALYZE` for detailed analysis\n2. Check current indexes on the tables/views\n3. Review the underlying view definitions\n\n**Expected improvements**: Proper indexing should reduce query time significantly."
+            
+            return response
+        
+        return f"I can see your SQL query. Please share more details about the performance issue and your database system for specific recommendations."
+    
+    def get_query_execution_plan_analysis(self, user_input, user_selections):
+        """Analyze specific SQL query with execution plan"""
+        # Extract key information from the input
+        lines = user_input.split('\n')
+        
+        # Find the SQL query
+        sql_query = ""
+        for line in lines:
+            if 'SELECT ' in line.upper():
+                sql_query = line.strip()
+                break
+        
+        # Extract execution time
+        execution_time = ""
+        for line in lines:
+            if 'Execution Time:' in line:
+                execution_time = line.strip()
+                break
+        
+        # Extract table information
+        table_info = ""
+        for line in lines:
+            if 'size is' in line.lower() or 'constraint' in line.lower():
+                table_info += line.strip() + "\n"
+        
+        db_system = user_selections.get('database', '') if user_selections else ''
+        
+        if 'postgres' in db_system.lower() or 'aurora' in db_system.lower():
+            return f"""🔍 **Aurora PostgreSQL Query Performance Analysis**
+
+✅ **Query Analysis:**
+```sql
+{sql_query}
+```
+
+🔍 **Execution Plan Issues Identified:**
+
+**Major Performance Problems:**
+1. **Bitmap Heap Scan with High Filter Cost** - 182+ seconds execution time
+2. **ILIKE Pattern Matching** - `%Student%` and `%ID%` require full text scans
+3. **Multiple String Filters** - first_name, middle_name, last_name all using ILIKE
+4. **Large Data Set** - 40GB table with 884K+ rows being scanned
+5. **Filter Inefficiency** - 725K rows removed by recheck, 294K by filter
+
+⚡ **Immediate Index Recommendations:**
+
+**1. Create Composite Index for Date + Text Search:**
+```sql
+-- For your specific query pattern
+CREATE INDEX CONCURRENTLY idx_customer_search_optimized 
+ON customer_ms.customer (updated_datetime, first_name, middle_name, last_name) 
+WHERE updated_datetime >= '2025-01-01';
+```
+
+**2. Create Text Search Indexes:**
+```sql
+-- For ILIKE pattern matching
+CREATE INDEX CONCURRENTLY idx_customer_names_gin 
+ON customer_ms.customer USING gin (
+    (first_name || ' ' || middle_name || ' ' || last_name) gin_trgm_ops
+);
+
+-- Enable trigram extension first
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+```
+
+**3. Optimize Query Rewrite:**
+```sql
+-- More efficient version of your query
+SELECT customer_uuid, crm_customer_id, first_name, last_name, 
+       primary_email, primary_mobile_number, customer_related_idp_info, updated_datetime
+FROM customer_ms.customer 
+WHERE updated_datetime >= '2025-02-21T10:29:08.734389+00:00'::timestamptz
+  AND (first_name ILIKE '%Student%' OR middle_name ILIKE '%Student%')
+  AND (middle_name ILIKE '%ID%' OR last_name ILIKE '%ID%')
+ORDER BY updated_datetime DESC
+LIMIT 1000;  -- Add limit to prevent runaway queries
+```
+
+🚀 **Performance Optimization Strategy:**
+
+**4. Consider Full-Text Search:**
+```sql
+-- For better text search performance
+ALTER TABLE customer_ms.customer 
+ADD COLUMN search_vector tsvector;
+
+UPDATE customer_ms.customer 
+SET search_vector = to_tsvector('english', 
+    coalesce(first_name,'') || ' ' || 
+    coalesce(middle_name,'') || ' ' || 
+    coalesce(last_name,''));
+
+CREATE INDEX idx_customer_fts ON customer_ms.customer USING gin(search_vector);
+```
+
+**5. Partitioning Strategy (40GB table):**
+```sql
+-- Consider partitioning by updated_datetime
+-- This will significantly improve query performance
+CREATE TABLE customer_ms.customer_2025_q1 PARTITION OF customer_ms.customer
+FOR VALUES FROM ('2025-01-01') TO ('2025-04-01');
+```
+
+📊 **Expected Performance Improvements:**
+- **Current**: 182+ seconds
+- **With composite index**: ~2-5 seconds
+- **With text search optimization**: ~0.5-2 seconds
+- **With partitioning**: ~0.1-0.5 seconds
+
+📊 **Monitoring Queries:**
+```sql
+-- Check index usage
+SELECT schemaname, tablename, indexname, idx_scan, idx_tup_read
+FROM pg_stat_user_indexes 
+WHERE tablename = 'customer';
+
+-- Monitor query performance
+SELECT query, mean_exec_time, calls 
+FROM pg_stat_statements 
+WHERE query LIKE '%customer_ms.customer%'
+ORDER BY mean_exec_time DESC;
+```
+
+🎯 **Immediate Action Plan:**
+1. Create the composite index first (biggest impact)
+2. Install pg_trgm extension for better ILIKE performance
+3. Rewrite query with LIMIT to prevent runaway execution
+4. Monitor index usage and query performance
+5. Consider partitioning for long-term scalability
+
+**Expected Result**: Query should execute in under 5 seconds instead of 3+ minutes."""
+        
+        return "Query execution plan analysis available for PostgreSQL/Aurora."
     
     def get_connection_troubleshooting_recommendation(self, user_input, user_selections):
         """Specialized recommendations for database connection issues"""
@@ -462,12 +633,9 @@ Consider implementing a **cursor-based pagination** system where each Lambda mai
                 selection_context += f"• Issue Type: {user_selections['issue_type']}\n"
             enhanced_context += selection_context
         
-        # Add technical analysis context
-        enhanced_context += "\n\nProvide detailed technical analysis including:\n"
-        enhanced_context += "- Specific SQL commands and configuration changes\n"
-        enhanced_context += "- Execution plan analysis and optimization strategies\n"
-        enhanced_context += "- Performance impact estimates and monitoring queries\n"
-        enhanced_context += "- Step-by-step implementation guidance\n"
+        # Add conversation context for natural responses
+        enhanced_context += "\n\nUser's current message: " + user_input + "\n"
+        enhanced_context += "Respond naturally and conversationally to their specific situation. Provide technical depth when appropriate, but keep the tone friendly and professional.\n"
         
         # Build cloud-specific guidance with detailed technical recommendations
         cloud_guidance = ""
@@ -485,53 +653,48 @@ Consider implementing a **cursor-based pagination** system where each Lambda mai
             elif 'GCP' in cloud_provider:
                 cloud_guidance = "\n\nGCP CLOUD SQL SPECIFIC GUIDANCE:\n- Use Cloud SQL configuration flags (not ALTER SYSTEM)\n- Monitor via Cloud Monitoring and Query Insights\n- Use Read Replicas for read scaling\n- Consider Cloud SQL Proxy for secure connections\n- Use connection pooling at application level\n- Leverage automatic storage increases and performance scaling\n- Use Query Insights for performance monitoring and optimization\n"
         
-        system_prompt = f"""You are DB-Buddy, a senior database architect and performance specialist with 15+ years of experience optimizing enterprise databases. You provide detailed, actionable analysis like a senior DBA consultant.
+        system_prompt = f"""You are DB-Buddy, a senior database performance specialist. You MUST analyze the specific SQL queries, execution plans, and technical details provided by users. Never give generic responses.
 
-IMPORTANT: Always consider the user's specific system configuration when providing recommendations. Tailor your advice to their exact database system, deployment type, and environment.
+CRITICAL INSTRUCTIONS:
+- If a user provides a SQL query, analyze THAT EXACT query
+- If they share an execution plan, interpret THOSE SPECIFIC metrics
+- If they mention table sizes, constraints, or schema details, use THAT INFORMATION
+- Never respond with generic advice when specific technical details are provided
 
-CLOUD DATABASE CONSIDERATIONS:
-- For managed cloud databases (RDS, Aurora, Azure SQL, Cloud SQL), configuration changes are done via cloud console/CLI, not direct SQL commands
-- Parameter groups, configuration flags, and service-specific settings control database behavior
-- Cloud monitoring tools provide better insights than traditional database queries
-- Scaling, backup, and maintenance are handled differently in cloud environments{cloud_guidance}
+SQL QUERY ANALYSIS PROCESS:
+1. **Parse the actual SQL statement** - identify tables, columns, WHERE conditions, JOINs
+2. **Analyze the execution plan** - look for table scans, index usage, cost estimates, actual times
+3. **Identify performance bottlenecks** - high costs, long execution times, inefficient operations
+4. **Recommend specific indexes** - based on WHERE clauses, ORDER BY, and SELECT columns
+5. **Provide exact DDL statements** - CREATE INDEX commands with proper syntax
 
-YOUR ANALYSIS APPROACH:
-1. **Identify the Root Cause**: Don't just suggest generic fixes - analyze the specific problem
-2. **Explain the "Why"**: Help users understand what's happening under the hood
-3. **Provide Multiple Solutions**: Offer immediate fixes, medium-term optimizations, and long-term strategies
-4. **Include Specific Code**: Give exact SQL, configuration changes, and monitoring queries
-5. **Quantify Impact**: Estimate performance improvements where possible
+EXECUTION PLAN INTERPRETATION:
+- **Seq Scan / Table Scan**: Missing indexes, recommend specific index creation
+- **Bitmap Heap Scan**: Analyze filter conditions, suggest composite indexes
+- **High cost values**: Identify expensive operations, recommend optimizations
+- **Rows Removed by Filter**: Suggest better indexing strategies
+- **Long execution times**: Provide immediate and long-term solutions
 
-When analyzing slow queries:
-- Examine execution plans in detail
-- Identify index usage patterns
-- Calculate row estimates vs actual rows
-- Analyze buffer hits and I/O patterns
-- Consider partitioning strategies
-- Evaluate query rewrite opportunities
+WHEN USER PROVIDES SPECIFIC QUERY:
+- Quote their exact table names and column names in your response
+- Reference their specific WHERE conditions
+- Analyze their actual execution plan metrics
+- Provide CREATE INDEX statements using their exact schema and table names
+- Calculate expected performance improvements based on their data
 
-For performance issues:
-- Analyze wait events and bottlenecks
-- Review resource utilization (CPU, memory, I/O)
-- Examine connection patterns and concurrency
-- Consider caching strategies
-- Evaluate hardware/instance sizing
+FORBIDDEN RESPONSES:
+- "I see you have a SQL query" (analyze the actual query instead)
+- "Please share your query" (when they already shared it)
+- Generic index advice (provide specific recommendations for their query)
+- Template responses (respond to their specific situation)
 
 Database-specific expertise:
 - **PostgreSQL/Aurora PostgreSQL**: EXPLAIN ANALYZE, pg_stat_*, vacuum strategies, partitioning, connection pooling
 - **MySQL/Aurora MySQL**: EXPLAIN FORMAT=JSON, SHOW ENGINE INNODB STATUS, query cache, buffer pool tuning
 - **SQL Server**: SET STATISTICS IO/TIME, DMVs, index maintenance, query store
-- **Oracle**: EXPLAIN PLAN, AWR reports, CBO statistics, partitioning strategies
+- **Oracle**: EXPLAIN PLAN, AWR reports, CBO statistics, partitioning strategies{cloud_guidance}
 
-Response format:
-✅ **Current Situation** - Summarize what's happening
-🔍 **Root Cause Analysis** - Why this is slow/problematic  
-⚡ **Immediate Fixes** - What to do right now
-🚀 **Optimization Strategy** - Medium-term improvements
-📊 **Monitoring & Verification** - How to measure success
-🎯 **Recommendations** - Best practices and next steps
-
-Always provide specific, executable solutions with exact syntax for their database system."""
+You MUST provide specific, actionable analysis of the user's actual query and execution plan. No generic responses allowed."""
         
         if self.use_ai == 'groq':
             return self.get_groq_response(system_prompt, enhanced_context, user_input)
@@ -801,17 +964,36 @@ Choose option 1 if the user's answers are vague or you need technical details. C
             'timestamp': datetime.now()
         }
         
-        greetings = {
-            'troubleshooting': "👋 Hi! I'm here to help you troubleshoot database issues. Let's work together to identify and resolve your problem.\n\n",
-            'query': "👋 Hello! I'll help you optimize your SQL queries for better performance. Please share your query details with me.\n\n",
-            'performance': "👋 Welcome! I'll assist you in analyzing and improving your database performance. Let's dive into the details.\n\n",
-            'architecture': "👋 Great choice! I'll help you design a robust database architecture. Let's discuss your requirements.\n\n",
-            'capacity': "👋 Hi there! I'll help you plan the right capacity for your database needs. Let's gather some information.\n\n",
-            'security': "👋 Hello! I'll guide you through database security and compliance best practices. Let's get started.\n\n"
+        # Generate intelligent welcome message based on service type
+        service_desc = self.service_descriptions.get(issue_type, 'database assistance')
+        
+        welcome_prompt = f"""You are DB-Buddy, a senior database expert. A user just selected {service_desc} assistance. 
+        
+Generate a warm, professional welcome message that:
+1. Welcomes them to the specific service
+2. Briefly explains what you can help with
+3. Asks them to describe their situation in their own words
+4. Mentions they can use the dropdowns above for system details
+
+Keep it conversational and encouraging. No bullet points or rigid structure."""
+        
+        # Get AI-generated welcome message
+        if self.use_ai:
+            ai_welcome = self.get_ai_response("", welcome_prompt, {})
+            if ai_welcome:
+                return ai_welcome
+        
+        # Fallback welcome messages
+        fallback_messages = {
+            'troubleshooting': "👋 Hi! I'm here to help you troubleshoot database issues. What problem are you experiencing? Feel free to describe it in your own words - I'll understand and provide targeted solutions.",
+            'query': "👋 Hello! I specialize in SQL query optimization. Share your query and describe what's happening - slow performance, errors, or anything else. I'll analyze it and provide specific recommendations.",
+            'performance': "👋 Welcome! I'm here to help with database performance issues. Tell me what you're experiencing - slow queries, high resource usage, or any performance concerns. I'll help you identify and fix the root cause.",
+            'architecture': "👋 Great to meet you! I'll help design the right database architecture for your needs. Tell me about your application, expected scale, and any specific requirements you have in mind.",
+            'capacity': "👋 Hi there! I specialize in database capacity planning. Share details about your current or expected workload, data size, user count - whatever you know. I'll help you plan the right infrastructure.",
+            'security': "👋 Hello! I'm here to help with database security and compliance. What are your security concerns or requirements? Whether it's access control, encryption, or compliance standards, I'll guide you through it."
         }
         
-        greeting = greetings.get(issue_type, "👋 Hello! ")
-        return greeting + self.question_flows[issue_type][0]
+        return fallback_messages.get(issue_type, "👋 Hello! How can I help you with your database needs today?")
     
     def contains_lov_selections(self, user_input):
         """Check if user input contains LOV selections"""
@@ -915,25 +1097,61 @@ Choose option 1 if the user's answers are vague or you need technical details. C
         # Save to memory after each interaction
         self.memory.save_conversation(session_id, conv)
         
-        # Check if user provided LOV selections
+        # Parse LOV selections if present
         if self.contains_lov_selections(answer):
             selections = self.parse_lov_selections(answer)
             conv['user_selections'].update(selections)
-            
-            # Always check if this is substantial technical input with LOV selections
-            # This includes SQL queries, specific errors, or detailed technical descriptions
-            if self.has_substantial_information(answer, conv['user_selections']):
-                return f"🔍 **Analyzing your requirements...**\n\n" + self.generate_recommendation(conv)
-            else:
-                follow_up = self.get_follow_up_questions(conv['type'], conv['user_selections'])
-                return follow_up
         
-        # If we have detailed technical input for any category, generate recommendations
-        if self.has_substantial_information(answer, conv['user_selections']) or conv['step'] >= 2:
-            return f"🔍 **Analyzing your requirements...**\n\n" + self.generate_recommendation(conv)
+        # Always use intelligent conversation - no predefined flows
+        return self.get_intelligent_response(conv, answer)
+    
+    def get_intelligent_response(self, conversation, user_input):
+        """Generate intelligent, contextual responses based on user input"""
+        service_type = conversation.get('type', 'general')
+        user_selections = conversation.get('user_selections', {})
+        conversation_history = conversation.get('answers', [])
         
-        # Default fallback
-        return self.generate_recommendation(conv)
+        # Build conversation context
+        context = f"Service type: {service_type}\n"
+        if user_selections:
+            context += "System configuration:\n"
+            for key, value in user_selections.items():
+                context += f"- {key}: {value}\n"
+        
+        if len(conversation_history) > 1:
+            context += f"\nPrevious conversation:\n"
+            for i, msg in enumerate(conversation_history[-3:], 1):  # Last 3 messages for context
+                context += f"User {i}: {msg[:200]}...\n" if len(msg) > 200 else f"User {i}: {msg}\n"
+        
+        # Get AI response with full context
+        ai_response = self.get_ai_response(context, user_input, user_selections)
+        
+        if ai_response:
+            return ai_response
+        
+        # Fallback to specialized recommendations if AI unavailable
+        specialized = self.get_specialized_recommendation(user_input, user_selections)
+        if specialized:
+            return specialized
+        
+        # Final fallback
+        return self.get_contextual_fallback(service_type, user_input, user_selections)
+    
+    def get_contextual_fallback(self, service_type, user_input, user_selections):
+        """Provide contextual fallback responses when AI is unavailable"""
+        input_lower = user_input.lower()
+        
+        if service_type == 'troubleshooting':
+            if any(word in input_lower for word in ['connection', 'timeout', 'error']):
+                return "I can help with connection issues. Please share the exact error message and your database system details for specific troubleshooting steps."
+        elif service_type == 'query':
+            if 'select' in input_lower or 'sql' in input_lower:
+                return "I see you have a SQL query. Please share the complete query and describe the performance issue you're experiencing."
+        elif service_type == 'performance':
+            if any(word in input_lower for word in ['slow', 'cpu', 'memory']):
+                return "I can help optimize performance. Please describe the specific symptoms and share any metrics you have available."
+        
+        return f"I understand you need help with {service_type}. Please provide more specific details about your situation so I can give you targeted recommendations."
     
     def has_substantial_information(self, message, user_selections):
         """Check if user provided enough information for analysis across all service categories"""

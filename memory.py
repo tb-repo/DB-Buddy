@@ -22,7 +22,7 @@ class ConversationMemory:
         """Save conversations to file"""
         try:
             with open(self.storage_file, 'w', encoding='utf-8') as f:
-                json.dump(self.conversations, f, indent=2, ensure_ascii=False)
+                json.dump(self.conversations, f, indent=2, ensure_ascii=False, default=str)
         except Exception as e:
             print(f"Error saving conversations: {e}")
     
