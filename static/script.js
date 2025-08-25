@@ -127,9 +127,10 @@ function sendAnswer() {
         addMessage('Sorry, there was an error processing your answer. Please try again.', 'bot');
     })
     .finally(() => {
-        // Re-enable input
+        // Re-enable input and reset height
         input.disabled = false;
         sendBtn.disabled = false;
+        input.style.height = '50px';
         input.focus();
     });
 }
@@ -174,14 +175,19 @@ function hideTypingIndicator() {
 function handleKeyPress(event) {
     const textarea = event.target;
     
-    // Auto-resize textarea
-    textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+    // Auto-resize textarea with better reset
+    textarea.style.height = '50px';
+    const newHeight = Math.min(textarea.scrollHeight, 120);
+    textarea.style.height = newHeight + 'px';
     
     // Handle Enter key
     if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         sendAnswer();
+        // Reset textarea height after sending
+        setTimeout(() => {
+            textarea.style.height = '50px';
+        }, 100);
     }
 }
 
@@ -189,8 +195,9 @@ function autoResizeTextarea() {
     const textarea = document.getElementById('userInput');
     if (textarea) {
         textarea.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+            this.style.height = '50px';
+            const newHeight = Math.min(this.scrollHeight, 120);
+            this.style.height = newHeight + 'px';
         });
     }
 }
@@ -373,7 +380,10 @@ function insertSelections() {
     if (insertText) {
         const currentText = userInput.value;
         userInput.value = insertText + (currentText ? '\n' + currentText : '');
-        autoResizeTextarea();
+        // Trigger resize
+        userInput.style.height = '50px';
+        const newHeight = Math.min(userInput.scrollHeight, 120);
+        userInput.style.height = newHeight + 'px';
         userInput.focus();
     }
 }

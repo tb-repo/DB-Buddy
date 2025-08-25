@@ -25,6 +25,7 @@ body {
     min-height: 100vh;
     color: var(--text-primary);
     line-height: 1.6;
+    overflow-x: hidden;
 }
 
 /* Navigation */
@@ -76,6 +77,8 @@ body {
     max-width: 1400px;
     margin: 0 auto;
     padding: 2rem;
+    min-height: calc(100vh - 80px);
+    overflow-y: auto;
 }
 
 /* Welcome Screen */
@@ -231,9 +234,11 @@ body {
     border-radius: 20px;
     box-shadow: var(--shadow-lg);
     height: 85vh;
+    max-height: 85vh;
     flex-direction: column;
     overflow: hidden;
     animation: slideUp 0.4s ease-out;
+    position: relative;
 }
 
 .chat-interface.active {
@@ -279,6 +284,7 @@ body {
     padding: 1rem 2rem;
     background: #fafafa;
     min-height: 0;
+    scroll-behavior: smooth;
 }
 
 .message {
@@ -371,11 +377,13 @@ body {
     outline: none;
     font-size: 1rem;
     font-family: inherit;
-    resize: none;
+    resize: vertical;
     min-height: 50px;
-    max-height: 150px;
+    max-height: 120px;
+    height: 50px;
     transition: all 0.3s ease;
     line-height: 1.4;
+    overflow-y: auto;
 }
 
 .input-wrapper textarea:focus {
