@@ -653,17 +653,78 @@ if st.button("Insert Selections"):
         st.session_state.messages.append({"role": "user", "content": selection_text.strip()})
         st.rerun()
 
-# Chat Interface
+# Main Content Area
 if not st.session_state.show_history:
-    st.subheader("Chat")
-    
-    # Display messages
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    if st.session_state.current_issue_type and st.session_state.messages:
+        # Show chat interface when conversation is active
+        st.subheader("Chat")
+        
+        # Display messages
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+    else:
+        # Show welcome screen when no conversation is active
+        st.markdown("""<div style='text-align: center; padding: 3rem 0;'>
+            <h2>🗄️ Welcome to DB-Buddy</h2>
+            <p style='font-size: 1.2rem; color: #666; margin-bottom: 2rem;'>Your AI-powered database assistant for instant solutions</p>
+        </div>""", unsafe_allow_html=True)
+        
+        # Feature cards
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem;'>
+                <h3>🔧 Troubleshooting</h3>
+                <p>Get help with database errors, connection issues, and system problems</p>
+            </div>""", unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem;'>
+                <h3>⚡ Query Optimization</h3>
+                <p>Analyze SQL queries, execution plans, and get performance recommendations</p>
+            </div>""", unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem;'>
+                <h3>📊 Performance Analysis</h3>
+                <p>Identify bottlenecks, optimize resource usage, and improve database performance</p>
+            </div>""", unsafe_allow_html=True)
+        
+        col4, col5, col6 = st.columns(3)
+        
+        with col4:
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem;'>
+                <h3>🏗️ Architecture Design</h3>
+                <p>Design scalable database architectures and migration strategies</p>
+            </div>""", unsafe_allow_html=True)
+        
+        with col5:
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem;'>
+                <h3>📈 Capacity Planning</h3>
+                <p>Plan hardware requirements, scaling strategies, and cost optimization</p>
+            </div>""", unsafe_allow_html=True)
+        
+        with col6:
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem;'>
+                <h3>🔒 Security & Compliance</h3>
+                <p>Implement security best practices, access controls, and compliance requirements</p>
+            </div>""", unsafe_allow_html=True)
+        
+        # Getting started instructions
+        st.markdown("""<div style='background: #f8f9fa; padding: 2rem; border-radius: 10px; margin-top: 2rem;'>
+            <h3>🚀 Getting Started</h3>
+            <ol>
+                <li><strong>Select a Service:</strong> Choose your database assistance type from the sidebar</li>
+                <li><strong>Click "New Chat":</strong> Start a conversation with DB-Buddy</li>
+                <li><strong>Configure Your Environment:</strong> Use the Quick Setup dropdowns to specify your database system</li>
+                <li><strong>Describe Your Issue:</strong> Share your SQL queries, error messages, or performance concerns</li>
+                <li><strong>Get Expert Recommendations:</strong> Receive tailored solutions and diagnostic queries</li>
+            </ol>
+        </div>""", unsafe_allow_html=True)
 
-# Chat input
-if not st.session_state.show_history:
+# Chat input (only show when conversation is active)
+if not st.session_state.show_history and st.session_state.current_issue_type and st.session_state.messages:
     if prompt := st.chat_input("Type your message here..."):
         # Add user message
         st.session_state.messages.append({"role": "user", "content": prompt})
