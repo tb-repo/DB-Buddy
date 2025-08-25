@@ -4,6 +4,11 @@ import json
 from datetime import datetime
 import os
 from memory import ConversationMemory
+from pdf_generator import PDFReportGenerator
+from image_processor import ImageProcessor
+import base64
+from PIL import Image
+import io
 
 # Get API keys from Streamlit secrets or environment variables
 def get_api_key(key_name):
@@ -528,6 +533,13 @@ if 'db_buddy' not in st.session_state:
 if 'memory' not in st.session_state:
     st.session_state.memory = ConversationMemory('streamlit_conversations.json')
 
+# Initialize PDF generator and image processor
+if 'pdf_generator' not in st.session_state:
+    st.session_state.pdf_generator = PDFReportGenerator()
+
+if 'image_processor' not in st.session_state:
+    st.session_state.image_processor = ImageProcessor()
+
 # Set page config
 st.set_page_config(
     page_title="DB-Buddy - AI Database Assistant",
@@ -858,9 +870,79 @@ if not st.session_state.show_history:
             </div>
         </div>""", unsafe_allow_html=True)
 
-# Chat input (only show when conversation is active)
+# Chat input and file upload (only show when conversation is active)
 if not st.session_state.show_history and st.session_state.current_issue_type and st.session_state.messages:
+    # File uploader for images
+    col1, col2 = st.columns([4, 1])
+    
+    with col1:
+        uploaded_file = st.file_uploader(
+            "Upload screenshot (optional)", 
+            type=['png', 'jpg', 'jpeg', 'gif'],
+            key=f"file_uploader_{len(st.session_state.messages)}"
+        )
+    
+    with col2:
+        if st.button("📄 Generate PDF Report", help="Download conversation as PDF"):
+            try:
+                # Generate PDF report
+                conversation_data = {
+                    'type': st.session_state.current_issue_type or 'general',
+                    'answers': [msg['content'] for msg in st.session_state.messages if msg['role'] == 'user'],
+                    'user_selections': {
+                        'deployment': deployment,
+                        'cloud_provider': cloud_provider,
+                        'database': database,
+                        'environment': environment
+                    }
+                }
+                
+                pdf_buffer = st.session_state.pdf_generator.generate_report(
+                    conversation_data, 
+                    st.session_state.session_id
+                )
+                
+                st.download_button(
+                    label="📥 Download PDF Report",
+                    data=pdf_buffer.getvalue(),
+                    file_name=f"db_buddy_report_{st.session_state.session_id[:8]}.pdf",
+                    mime="application/pdf"
+                )
+                
+                st.success("PDF report generated successfully!")
+                
+            except Exception as e:
+                st.error(f"Failed to generate PDF report: {str(e)}")
+    
     if prompt := st.chat_input("Type your message here..."):
+        # Process uploaded image if present
+        image_analysis = None
+        if uploaded_file is not None:
+            try:
+                # Convert uploaded file to base64
+                image = Image.open(uploaded_file)
+                buffer = io.BytesIO()
+                image.save(buffer, format='PNG')
+                image_base64 = base64.b64encode(buffer.getvalue()).decode()
+                
+                # Process image
+                anthropic_key = get_api_key('ANTHROPIC_API_KEY')
+                if anthropic_key:
+                    image_analysis = st.session_state.image_processor.process_claude_vision(image_base64, anthropic_key)
+                else:
+                    image_analysis = st.session_state.image_processor.process_image(image_base64, 'base64')
+                
+                if image_analysis and not image_analysis.get('error'):
+                    # Show image preview
+                    st.image(image, caption="Uploaded Screenshot", width=300)
+                    # Combine image analysis with user message
+                    prompt = f"{prompt}\n\n{image_analysis['analysis']}"
+                else:
+                    st.error(f"Image processing failed: {image_analysis.get('error', 'Unknown error')}")
+                    
+            except Exception as e:
+                st.error(f"Failed to process image: {str(e)}")
+        
         # Add user message
         st.session_state.messages.append({"role": "user", "content": prompt})
         

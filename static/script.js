@@ -1,6 +1,7 @@
 let sessionId = null;
 let currentIssueType = null;
 let isTyping = false;
+let currentImageData = null;
 
 const issueTypeNames = {
     'troubleshooting': 'Database Troubleshooting',
@@ -93,26 +94,35 @@ function sendAnswer() {
     const sendBtn = document.getElementById('sendBtn');
     const answer = input.value.trim();
     
-    if (!answer || isTyping) return;
+    if ((!answer && !currentImageData) || isTyping) return;
     
     // Disable input while processing
     input.disabled = true;
     sendBtn.disabled = true;
     
-    addMessage(answer, 'user');
+    if (answer) {
+        addMessage(answer, 'user');
+    }
+    
     input.value = '';
     
     showTypingIndicator();
+    
+    const requestBody = {
+        session_id: sessionId,
+        answer: answer || 'Image uploaded'
+    };
+    
+    if (currentImageData) {
+        requestBody.image_data = currentImageData;
+    }
     
     fetch('/answer', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            session_id: sessionId,
-            answer: answer
-        })
+        body: JSON.stringify(requestBody)
     })
     .then(response => response.json())
     .then(data => {
@@ -131,6 +141,8 @@ function sendAnswer() {
         input.disabled = false;
         sendBtn.disabled = false;
         input.style.height = '50px';
+        currentImageData = null; // Clear image data
+        clearImagePreview();
         input.focus();
     });
 }
@@ -386,6 +398,110 @@ function insertSelections() {
         userInput.style.height = newHeight + 'px';
         userInput.focus();
     }
+}
+
+function handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file.');
+        return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('Image size must be less than 5MB.');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        currentImageData = e.target.result.split(',')[1]; // Remove data URL prefix
+        showImagePreview(e.target.result);
+        
+        // Show upload indicator
+        const indicator = document.createElement('div');
+        indicator.className = 'image-upload-indicator';
+        indicator.innerHTML = '<i class="fas fa-image"></i> Image ready to send';
+        
+        const messagesContainer = document.getElementById('chatMessages');
+        messagesContainer.appendChild(indicator);
+        
+        // Scroll to bottom
+        messagesContainer.scrollTo({
+            top: messagesContainer.scrollHeight,
+            behavior: 'smooth'
+        });
+    };
+    
+    reader.readAsDataURL(file);
+}
+
+function showImagePreview(imageSrc) {
+    const preview = document.createElement('img');
+    preview.src = imageSrc;
+    preview.className = 'image-preview';
+    preview.id = 'currentImagePreview';
+    
+    const messagesContainer = document.getElementById('chatMessages');
+    messagesContainer.appendChild(preview);
+}
+
+function clearImagePreview() {
+    const preview = document.getElementById('currentImagePreview');
+    if (preview) {
+        preview.remove();
+    }
+    
+    const indicators = document.querySelectorAll('.image-upload-indicator');
+    indicators.forEach(indicator => indicator.remove());
+}
+
+function generateReport() {
+    if (!sessionId) {
+        alert('No active conversation to generate report for.');
+        return;
+    }
+    
+    // Show loading indicator
+    const reportBtn = document.querySelector('.report-btn');
+    const originalIcon = reportBtn.innerHTML;
+    reportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    reportBtn.disabled = true;
+    
+    // Generate and download report
+    fetch(`/generate_report/${sessionId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to generate report');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `db_buddy_report_${sessionId.substring(0, 8)}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            // Show success message
+            addMessage('📄 PDF report generated and downloaded successfully!', 'bot');
+        })
+        .catch(error => {
+            console.error('Error generating report:', error);
+            addMessage('Sorry, there was an error generating the PDF report. Please try again.', 'bot');
+        })
+        .finally(() => {
+            // Restore button
+            reportBtn.innerHTML = originalIcon;
+            reportBtn.disabled = false;
+        });
 }
 
 // Initialize the application

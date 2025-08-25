@@ -322,13 +322,20 @@
             
             <div class="chat-input-container">
                 <div class="input-wrapper">
+                    <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
+                    <button onclick="document.getElementById('imageInput').click()" class="attachment-btn" title="Upload Screenshot">
+                        <i class="fas fa-image"></i>
+                    </button>
                     <textarea id="userInput" placeholder="Type your message here... (Shift+Enter for new line, Enter to send)" onkeydown="handleKeyPress(event)" rows="1"></textarea>
+                    <button onclick="generateReport()" class="report-btn" title="Generate PDF Report">
+                        <i class="fas fa-file-pdf"></i>
+                    </button>
                     <button onclick="sendAnswer()" id="sendBtn" class="send-btn">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
                 <div class="input-help">
-                    <small><i class="fas fa-info-circle"></i> Use quick selectors above or type details directly</small>
+                    <small><i class="fas fa-info-circle"></i> Use quick selectors above, upload screenshots, or type details directly</small>
                 </div>
             </div>
         </div>

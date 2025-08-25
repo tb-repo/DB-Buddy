@@ -1,9 +1,12 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_file
 import json
 import requests
 import os
 from datetime import datetime
 from memory import ConversationMemory
+from pdf_generator import PDFReportGenerator
+from image_processor import ImageProcessor
+import base64
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -16,6 +19,8 @@ class DBBuddy:
         self.conversations = {}
         self.memory = ConversationMemory()
         self.use_ai = self.check_ollama_available()
+        self.pdf_generator = PDFReportGenerator()
+        self.image_processor = ImageProcessor()
         # Remove predefined question flows - use intelligent conversation instead
         self.service_descriptions = {
             'troubleshooting': 'database troubleshooting and error resolution',
@@ -1135,7 +1140,7 @@ Keep it conversational and encouraging. No bullet points or rigid structure."""
         
         return base_context + "Please share more details about your specific needs."
     
-    def process_answer(self, session_id, answer):
+    def process_answer(self, session_id, answer, image_data=None):
         if session_id not in self.conversations:
             return "Session not found. Please start a new conversation."
         
@@ -1144,6 +1149,24 @@ Keep it conversational and encouraging. No bullet points or rigid structure."""
         # Initialize user_selections if not exists
         if 'user_selections' not in conv:
             conv['user_selections'] = {}
+        
+        # Process image if provided
+        image_analysis = None
+        if image_data:
+            try:
+                # Try Claude Vision first if available
+                anthropic_key = os.getenv('ANTHROPIC_API_KEY')
+                if anthropic_key:
+                    image_analysis = self.image_processor.process_claude_vision(image_data, anthropic_key)
+                else:
+                    # Fallback to OCR
+                    image_analysis = self.image_processor.process_image(image_data, 'base64')
+                
+                if image_analysis and not image_analysis.get('error'):
+                    # Combine image analysis with user message
+                    answer = f"{answer}\n\n{image_analysis['analysis']}"
+            except Exception as e:
+                image_analysis = {'error': f'Image processing failed: {str(e)}'}
         
         conv['answers'].append(answer)
         conv['step'] += 1
@@ -1481,9 +1504,47 @@ def process_answer():
     data = request.json
     session_id = data.get('session_id')
     answer = data.get('answer')
+    image_data = data.get('image_data')  # Base64 encoded image
     
-    response = db_buddy.process_answer(session_id, answer)
+    response = db_buddy.process_answer(session_id, answer, image_data)
     return jsonify({'response': response})
+
+@app.route('/generate_report/<session_id>', methods=['GET'])
+def generate_report(session_id):
+    try:
+        # Get conversation data
+        conversation = db_buddy.memory.get_conversation(session_id)
+        if not conversation:
+            return jsonify({'error': 'Conversation not found'}), 404
+        
+        # Generate PDF report
+        pdf_buffer = db_buddy.pdf_generator.generate_report(conversation['data'], session_id)
+        
+        # Return PDF file
+        return send_file(
+            pdf_buffer,
+            as_attachment=True,
+            download_name=f'db_buddy_report_{session_id[:8]}.pdf',
+            mimetype='application/pdf'
+        )
+    except Exception as e:
+        return jsonify({'error': f'Failed to generate report: {str(e)}'}), 500
+
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    try:
+        data = request.json
+        image_data = data.get('image_data')
+        
+        if not image_data:
+            return jsonify({'error': 'No image data provided'}), 400
+        
+        # Process image
+        result = db_buddy.image_processor.process_image(image_data, 'base64')
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': f'Image processing failed: {str(e)}'}), 500
 
 @app.route('/conversations', methods=['GET'])
 def get_conversations():
