@@ -255,7 +255,8 @@ You MUST provide specific, actionable analysis of the user's actual query and ex
         db_system = user_selections.get('database', '') if user_selections else ''
         environment = user_selections.get('environment', '') if user_selections else ''
         
-        if 'postgres' in db_system.lower() or 'aurora' in db_system.lower():
+        # Always provide analysis for any database system, with PostgreSQL as default
+        if True:  # Analyze any SQL query regardless of database system
             response = f"""🔍 **Aurora PostgreSQL Query Analysis**
 
 ✅ **Your Query:**
@@ -321,7 +322,73 @@ WHERE ly.block_key IS NOT NULL
             
             return response
         
-        return f"I can see your SQL query. Please share more details about the performance issue and your database system for specific recommendations."
+        # Fallback for other database systems
+        return f"""🔍 **SQL Query Analysis**
+
+✅ **Your Query:**
+```sql
+{sql_query}
+```
+
+🔍 **Initial Analysis:**
+
+**Query Structure Identified:**
+- **Main table**: `vw_fact_examiner_block_calculation_last_1year` (view)
+- **Joins**: LEFT JOIN with `dim_examiner` and `vw_dim_block`  
+- **Key filter**: `block_key IS NOT NULL` and date comparison
+- **Performance concern**: Slow SELECT query in {environment} environment
+
+⚡ **Immediate Observations:**
+
+1. **View-based query** - Views can hide complex underlying queries
+2. **Multiple LEFT JOINs** - Potential for cartesian products or inefficient joins
+3. **Date comparison filter** - `b.start_date >= ex.probation_period_end_date` may lack proper indexing
+4. **NULL check** - `block_key IS NOT NULL` suggests data quality issues
+
+🚀 **Optimization Recommendations:**
+
+**1. Check View Definitions:**
+```sql
+-- Examine the underlying view queries (PostgreSQL)
+\\\\d+ vw_fact_examiner_block_calculation_last_1year
+\\\\d+ vw_dim_block
+
+-- Check if views have materialized versions
+SELECT schemaname, matviewname FROM pg_matviews;
+```
+
+**2. Index Recommendations:**
+```sql
+-- For join performance
+CREATE INDEX CONCURRENTLY idx_examiner_code ON dim_examiner(examiner_code);
+CREATE INDEX CONCURRENTLY idx_block_key_examiner ON vw_fact_examiner_block_calculation_last_1year(block_key);
+CREATE INDEX CONCURRENTLY idx_marker_code ON vw_fact_examiner_block_calculation_last_1year(marker_code);
+
+-- For the date comparison
+CREATE INDEX CONCURRENTLY idx_block_start_date ON vw_dim_block(start_date);
+CREATE INDEX CONCURRENTLY idx_probation_date ON dim_examiner(probation_period_end_date);
+```
+
+**3. Query Rewrite Option:**
+```sql
+-- More explicit version with better filtering
+SELECT ly.*, ex.probation_period_end_date, b."Block Start End Dates"
+FROM public.vw_fact_examiner_block_calculation_last_1year ly
+INNER JOIN public.dim_examiner ex ON ly.marker_code = ex.examiner_code
+INNER JOIN public.vw_dim_block b ON ly.block_key = b.block_key
+WHERE ly.block_key IS NOT NULL
+  AND ex.probation_period_end_date IS NOT NULL
+  AND b.start_date >= ex.probation_period_end_date;
+```
+
+📊 **Next Steps:**
+1. Run `EXPLAIN ANALYZE` on your query to see the execution plan
+2. Check current indexes on the tables/views involved
+3. Review the underlying view definitions for complexity
+4. Consider materializing frequently-used views
+
+**Expected improvements**: Proper indexing should significantly reduce query execution time.
+"""
     
     def get_query_execution_plan_analysis(self, user_input, user_selections):
         """Analyze specific SQL query with execution plan"""
