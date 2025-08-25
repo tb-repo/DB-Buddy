@@ -665,62 +665,197 @@ if not st.session_state.show_history:
                 st.markdown(message["content"])
     else:
         # Show welcome screen when no conversation is active
-        st.markdown("""<div style='text-align: center; padding: 3rem 0;'>
-            <h2>🗄️ Welcome to DB-Buddy</h2>
-            <p style='font-size: 1.2rem; color: #666; margin-bottom: 2rem;'>Your AI-powered database assistant for instant solutions</p>
+        st.markdown("""<div style='text-align: center; padding: 2rem 0;'>
+            <h1 style='font-size: 3rem; margin-bottom: 1rem; color: #374151;'>🗄️ Welcome to DB-Buddy</h1>
+            <p style='font-size: 1.3rem; color: #6b7280; margin-bottom: 3rem; max-width: 800px; margin-left: auto; margin-right: auto;'>Your AI-powered database assistant that replaces hours of research with instant, expert solutions</p>
         </div>""", unsafe_allow_html=True)
         
-        # Feature cards
-        col1, col2, col3 = st.columns(3)
+        # Value Proposition Section
+        st.markdown("""<div style='margin: 3rem 0;'>
+            <h2 style='text-align: center; font-size: 2rem; margin-bottom: 2rem; color: #374151;'>Why Choose DB-Buddy?</h2>
+        </div>""", unsafe_allow_html=True)
+        
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem;'>
-                <h3>🔧 Troubleshooting</h3>
-                <p>Get help with database errors, connection issues, and system problems</p>
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; height: 200px; display: flex; flex-direction: column; justify-content: center;'>
+                <div style='font-size: 2.5rem; margin-bottom: 1rem;'>🚀</div>
+                <h3 style='margin-bottom: 0.5rem; color: #374151;'>10x Faster</h3>
+                <p style='color: #6b7280; font-size: 0.9rem;'>Get instant solutions instead of hours of research</p>
             </div>""", unsafe_allow_html=True)
         
         with col2:
-            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem;'>
-                <h3>⚡ Query Optimization</h3>
-                <p>Analyze SQL queries, execution plans, and get performance recommendations</p>
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; height: 200px; display: flex; flex-direction: column; justify-content: center;'>
+                <div style='font-size: 2.5rem; margin-bottom: 1rem;'>🔬</div>
+                <h3 style='margin-bottom: 0.5rem; color: #374151;'>Deep Analysis</h3>
+                <p style='color: #6b7280; font-size: 0.9rem;'>Paste SQL queries for immediate optimization recommendations</p>
             </div>""", unsafe_allow_html=True)
         
         with col3:
-            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem;'>
-                <h3>📊 Performance Analysis</h3>
-                <p>Identify bottlenecks, optimize resource usage, and improve database performance</p>
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; height: 200px; display: flex; flex-direction: column; justify-content: center;'>
+                <div style='font-size: 2.5rem; margin-bottom: 1rem;'>☁️</div>
+                <h3 style='margin-bottom: 0.5rem; color: #374151;'>Multi-Cloud</h3>
+                <p style='color: #6b7280; font-size: 0.9rem;'>AWS, Azure, GCP expertise with cloud-specific best practices</p>
+            </div>""", unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; height: 200px; display: flex; flex-direction: column; justify-content: center;'>
+                <div style='font-size: 2.5rem; margin-bottom: 1rem;'>🛡️</div>
+                <h3 style='margin-bottom: 0.5rem; color: #374151;'>Production-Ready</h3>
+                <p style='color: #6b7280; font-size: 0.9rem;'>Enterprise-grade solutions with security & scalability</p>
+            </div>""", unsafe_allow_html=True)
+        
+        # Benefits Section
+        st.markdown("""<div style='margin: 4rem 0 2rem 0;'>
+            <h2 style='text-align: center; font-size: 2rem; margin-bottom: 2rem; color: #374151;'>Key Benefits</h2>
+        </div>""", unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""<div style='background: #f8fafc; padding: 2rem; border-radius: 15px; margin-bottom: 1rem;'>
+                <div style='display: flex; align-items: center; margin-bottom: 1rem;'>
+                    <span style='color: #10b981; font-size: 1.5rem; margin-right: 1rem;'>✓</span>
+                    <h4 style='margin: 0; color: #374151;'>Reduce DBA Workload</h4>
+                </div>
+                <p style='margin: 0; color: #6b7280;'>Handle 80% of common database issues without escalating to your DBA team</p>
+            </div>
+            
+            <div style='background: #f8fafc; padding: 2rem; border-radius: 15px; margin-bottom: 1rem;'>
+                <div style='display: flex; align-items: center; margin-bottom: 1rem;'>
+                    <span style='color: #10b981; font-size: 1.5rem; margin-right: 1rem;'>✓</span>
+                    <h4 style='margin: 0; color: #374151;'>Minimize Downtime</h4>
+                </div>
+                <p style='margin: 0; color: #6b7280;'>Get immediate troubleshooting steps for critical production issues</p>
+            </div>
+            
+            <div style='background: #f8fafc; padding: 2rem; border-radius: 15px; margin-bottom: 1rem;'>
+                <div style='display: flex; align-items: center; margin-bottom: 1rem;'>
+                    <span style='color: #10b981; font-size: 1.5rem; margin-right: 1rem;'>✓</span>
+                    <h4 style='margin: 0; color: #374151;'>Optimize Performance</h4>
+                </div>
+                <p style='margin: 0; color: #6b7280;'>Identify bottlenecks and get specific index recommendations with expected improvements</p>
+            </div>""", unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""<div style='background: #f8fafc; padding: 2rem; border-radius: 15px; margin-bottom: 1rem;'>
+                <div style='display: flex; align-items: center; margin-bottom: 1rem;'>
+                    <span style='color: #10b981; font-size: 1.5rem; margin-right: 1rem;'>✓</span>
+                    <h4 style='margin: 0; color: #374151;'>Save Development Time</h4>
+                </div>
+                <p style='margin: 0; color: #6b7280;'>Stop context-switching to research database issues - get answers instantly</p>
+            </div>
+            
+            <div style='background: #f8fafc; padding: 2rem; border-radius: 15px; margin-bottom: 1rem;'>
+                <div style='display: flex; align-items: center; margin-bottom: 1rem;'>
+                    <span style='color: #10b981; font-size: 1.5rem; margin-right: 1rem;'>✓</span>
+                    <h4 style='margin: 0; color: #374151;'>Learn Best Practices</h4>
+                </div>
+                <p style='margin: 0; color: #6b7280;'>Understand the 'why' behind recommendations to improve your database skills</p>
+            </div>
+            
+            <div style='background: #f8fafc; padding: 2rem; border-radius: 15px; margin-bottom: 1rem;'>
+                <div style='display: flex; align-items: center; margin-bottom: 1rem;'>
+                    <span style='color: #10b981; font-size: 1.5rem; margin-right: 1rem;'>✓</span>
+                    <h4 style='margin: 0; color: #374151;'>Cost Optimization</h4>
+                </div>
+                <p style='margin: 0; color: #6b7280;'>Right-size your infrastructure and optimize cloud database costs</p>
+            </div>""", unsafe_allow_html=True)
+        
+        # How It Works Section
+        st.markdown("""<div style='margin: 4rem 0 2rem 0;'>
+            <h2 style='text-align: center; font-size: 2rem; margin-bottom: 2rem; color: #374151;'>How It Works</h2>
+        </div>""", unsafe_allow_html=True)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown("""<div style='text-align: center; padding: 1.5rem;'>
+                <div style='width: 50px; height: 50px; background: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; margin: 0 auto 1rem; font-size: 1.2rem;'>1</div>
+                <h4 style='margin-bottom: 0.5rem; color: #374151;'>Choose Service</h4>
+                <p style='color: #6b7280; font-size: 0.9rem;'>Select from troubleshooting, optimization, performance, architecture, capacity, or security</p>
+            </div>""", unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""<div style='text-align: center; padding: 1.5rem;'>
+                <div style='width: 50px; height: 50px; background: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; margin: 0 auto 1rem; font-size: 1.2rem;'>2</div>
+                <h4 style='margin-bottom: 0.5rem; color: #374151;'>Describe Situation</h4>
+                <p style='color: #6b7280; font-size: 0.9rem;'>Share SQL queries, error messages, execution plans, or describe requirements</p>
+            </div>""", unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown("""<div style='text-align: center; padding: 1.5rem;'>
+                <div style='width: 50px; height: 50px; background: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; margin: 0 auto 1rem; font-size: 1.2rem;'>3</div>
+                <h4 style='margin-bottom: 0.5rem; color: #374151;'>Get Recommendations</h4>
+                <p style='color: #6b7280; font-size: 0.9rem;'>Receive specific, actionable solutions with exact commands and configurations</p>
+            </div>""", unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown("""<div style='text-align: center; padding: 1.5rem;'>
+                <div style='width: 50px; height: 50px; background: #3b82f6; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; margin: 0 auto 1rem; font-size: 1.2rem;'>4</div>
+                <h4 style='margin-bottom: 0.5rem; color: #374151;'>Implement & Verify</h4>
+                <p style='color: #6b7280; font-size: 0.9rem;'>Follow provided steps and use diagnostic queries to verify improvements</p>
+            </div>""", unsafe_allow_html=True)
+        
+        # Service Selection Section
+        st.markdown("""<div style='margin: 4rem 0 2rem 0;'>
+            <h2 style='text-align: center; font-size: 2rem; margin-bottom: 2rem; color: #374151;'>Choose Your Database Challenge</h2>
+        </div>""", unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem; border: 2px solid transparent; transition: all 0.3s ease;' onmouseover='this.style.borderColor="#3b82f6"; this.style.transform="translateY(-4px)"' onmouseout='this.style.borderColor="transparent"; this.style.transform="translateY(0)"'>
+                <div style='font-size: 2.5rem; margin-bottom: 1rem;'>🔧</div>
+                <h3 style='color: #374151; margin-bottom: 1rem;'>Troubleshooting</h3>
+                <p style='color: #6b7280;'>Resolve slow queries, connection issues, errors, crashes, and data corruption problems</p>
+            </div>""", unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem; border: 2px solid transparent; transition: all 0.3s ease;' onmouseover='this.style.borderColor="#3b82f6"; this.style.transform="translateY(-4px)"' onmouseout='this.style.borderColor="transparent"; this.style.transform="translateY(0)"'>
+                <div style='font-size: 2.5rem; margin-bottom: 1rem;'>⚡</div>
+                <h3 style='color: #374151; margin-bottom: 1rem;'>Query Optimization</h3>
+                <p style='color: #6b7280;'>SQL tuning, indexing strategies, execution plans, and query performance improvement</p>
+            </div>""", unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem; border: 2px solid transparent; transition: all 0.3s ease;' onmouseover='this.style.borderColor="#3b82f6"; this.style.transform="translateY(-4px)"' onmouseout='this.style.borderColor="transparent"; this.style.transform="translateY(0)"'>
+                <div style='font-size: 2.5rem; margin-bottom: 1rem;'>📊</div>
+                <h3 style='color: #374151; margin-bottom: 1rem;'>Performance Analysis</h3>
+                <p style='color: #6b7280;'>CPU, memory, I/O bottleneck analysis, monitoring setup, and performance metrics</p>
             </div>""", unsafe_allow_html=True)
         
         col4, col5, col6 = st.columns(3)
         
         with col4:
-            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem;'>
-                <h3>🏗️ Architecture Design</h3>
-                <p>Design scalable database architectures and migration strategies</p>
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem; border: 2px solid transparent; transition: all 0.3s ease;' onmouseover='this.style.borderColor="#3b82f6"; this.style.transform="translateY(-4px)"' onmouseout='this.style.borderColor="transparent"; this.style.transform="translateY(0)"'>
+                <div style='font-size: 2.5rem; margin-bottom: 1rem;'>🏗️</div>
+                <h3 style='color: #374151; margin-bottom: 1rem;'>Architecture Design</h3>
+                <p style='color: #6b7280;'>Schema design, normalization, partitioning, replication, and database structure planning</p>
             </div>""", unsafe_allow_html=True)
         
         with col5:
-            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem;'>
-                <h3>📈 Capacity Planning</h3>
-                <p>Plan hardware requirements, scaling strategies, and cost optimization</p>
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem; border: 2px solid transparent; transition: all 0.3s ease;' onmouseover='this.style.borderColor="#3b82f6"; this.style.transform="translateY(-4px)"' onmouseout='this.style.borderColor="transparent"; this.style.transform="translateY(0)"'>
+                <div style='font-size: 2.5rem; margin-bottom: 1rem;'>📈</div>
+                <h3 style='color: #374151; margin-bottom: 1rem;'>Capacity Planning</h3>
+                <p style='color: #6b7280;'>Hardware sizing, scaling strategies, growth planning, and infrastructure recommendations</p>
             </div>""", unsafe_allow_html=True)
         
         with col6:
-            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem;'>
-                <h3>🔒 Security & Compliance</h3>
-                <p>Implement security best practices, access controls, and compliance requirements</p>
+            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; margin-bottom: 1rem; border: 2px solid transparent; transition: all 0.3s ease;' onmouseover='this.style.borderColor="#3b82f6"; this.style.transform="translateY(-4px)"' onmouseout='this.style.borderColor="transparent"; this.style.transform="translateY(0)"'>
+                <div style='font-size: 2.5rem; margin-bottom: 1rem;'>🔒</div>
+                <h3 style='color: #374151; margin-bottom: 1rem;'>Security & Compliance</h3>
+                <p style='color: #6b7280;'>Access control, encryption, auditing, compliance requirements, and data protection</p>
             </div>""", unsafe_allow_html=True)
         
-        # Getting started instructions
-        st.markdown("""<div style='background: #f8f9fa; padding: 2rem; border-radius: 10px; margin-top: 2rem;'>
-            <h3>🚀 Getting Started</h3>
-            <ol>
-                <li><strong>Select a Service:</strong> Choose your database assistance type from the sidebar</li>
-                <li><strong>Click "New Chat":</strong> Start a conversation with DB-Buddy</li>
-                <li><strong>Configure Your Environment:</strong> Use the Quick Setup dropdowns to specify your database system</li>
-                <li><strong>Describe Your Issue:</strong> Share your SQL queries, error messages, or performance concerns</li>
-                <li><strong>Get Expert Recommendations:</strong> Receive tailored solutions and diagnostic queries</li>
-            </ol>
+        # Call to Action
+        st.markdown("""<div style='background: linear-gradient(135deg, #3b82f6, #2563eb); padding: 3rem; border-radius: 20px; margin-top: 3rem; text-align: center; color: white;'>
+            <h2 style='color: white; margin-bottom: 1rem; font-size: 2rem;'>🚀 Ready to Solve Your Database Challenges?</h2>
+            <p style='font-size: 1.2rem; margin-bottom: 2rem; opacity: 0.9;'>Join thousands of developers and DBAs who save hours every week with DB-Buddy</p>
+            <div style='background: rgba(255,255,255,0.1); padding: 1.5rem; border-radius: 15px; margin-top: 2rem;'>
+                <h4 style='color: white; margin-bottom: 1rem;'>Get Started in 3 Simple Steps:</h4>
+                <p style='color: white; opacity: 0.9; margin: 0;'>1. Select a service from the sidebar → 2. Click "New Chat" → 3. Describe your database challenge</p>
+            </div>
         </div>""", unsafe_allow_html=True)
 
 # Chat input (only show when conversation is active)
