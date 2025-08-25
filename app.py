@@ -156,8 +156,8 @@ class DBBuddy:
 **1. Check View Definitions:**
 ```sql
 -- Examine the underlying view queries
-\d+ vw_fact_examiner_block_calculation_last_1year
-\d+ vw_dim_block
+\\d+ vw_fact_examiner_block_calculation_last_1year
+\\d+ vw_dim_block
 
 -- Check if views have materialized versions
 SELECT schemaname, matviewname FROM pg_matviews;
