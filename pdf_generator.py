@@ -185,12 +185,12 @@ class PDFReportGenerator:
         story.append(Paragraph(exec_summary, self.styles['Normal']))
         story.append(Spacer(1, 20))
         
-        # Add performance chart if applicable
+        # Add performance metrics table if applicable
         if conversation_data.get('type') in ['query', 'performance']:
-            story.append(Paragraph("Performance Impact Visualization", self.styles['SectionHeader']))
-            chart = self.create_performance_chart(conversation_data.get('type'), summary_data)
-            if chart:
-                story.append(chart)
+            story.append(Paragraph("Performance Impact Analysis", self.styles['SectionHeader']))
+            metrics_table = self.create_performance_metrics_table(conversation_data.get('type'))
+            if metrics_table:
+                story.append(metrics_table)
                 story.append(Spacer(1, 15))
         
         # Footer
@@ -375,32 +375,42 @@ class PDFReportGenerator:
         content = re.sub(r'\s+', ' ', content)      # Normalize multiple spaces
         
         return content.strip()
-    def create_performance_chart(self, service_type, metrics_data):
-        """Create performance improvement chart"""
-        drawing = Drawing(400, 200)
-        
-        # Create bar chart showing before/after performance
-        chart = VerticalBarChart()
-        chart.x = 50
-        chart.y = 50
-        chart.height = 125
-        chart.width = 300
-        
+    def create_performance_metrics_table(self, service_type):
+        """Create performance metrics comparison table"""
         if service_type == 'query':
-            chart.data = [[6000, 500], [100, 95]]  # Execution time, CPU usage
-            chart.categoryAxis.categoryNames = ['Execution Time (ms)', 'CPU Usage (%)']
+            data = [
+                ['Metric', 'Current State', 'Expected After Optimization', 'Improvement'],
+                ['Query Execution Time', '6000ms', '500ms', '92% faster'],
+                ['CPU Utilization', '85%', '45%', '47% reduction'],
+                ['Index Scans vs Table Scans', '20%', '95%', '75% improvement'],
+                ['Concurrent Query Capacity', '50 queries', '200 queries', '4x increase']
+            ]
         elif service_type == 'performance':
-            chart.data = [[80, 30], [70, 40]]  # Response time, throughput
-            chart.categoryAxis.categoryNames = ['Response Time (ms)', 'Throughput (TPS)']
+            data = [
+                ['Metric', 'Current State', 'Expected After Tuning', 'Improvement'],
+                ['Response Time', '2500ms', '800ms', '68% faster'],
+                ['Throughput (TPS)', '150 TPS', '400 TPS', '167% increase'],
+                ['Resource Utilization', '90%', '65%', '28% reduction'],
+                ['Connection Pool Efficiency', '60%', '90%', '50% improvement']
+            ]
         else:
-            chart.data = [[100, 20]]  # Generic improvement
-            chart.categoryAxis.categoryNames = ['Performance Score']
+            return None
         
-        chart.bars[0].fillColor = colors.red  # Before
-        chart.bars[1].fillColor = colors.green  # After
+        table = Table(data, colWidths=[2*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563eb')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8fafc')),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e5e7eb')),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
+        ]))
         
-        drawing.add(chart)
-        return drawing
+        return table
     
     def analyze_performance_impact(self, conversation_data):
         """Analyze expected performance impact"""
