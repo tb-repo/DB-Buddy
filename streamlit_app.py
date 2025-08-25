@@ -278,6 +278,7 @@ You MUST provide specific, actionable analysis of the user's actual query and ex
 - **Joins**: LEFT JOIN with `dim_examiner` and `vw_dim_block`
 - **Key filter**: `block_key IS NOT NULL` and date comparison
 - **Performance concern**: Slow SELECT query consuming high DB resources
+- **Environment**: {environment} environment
 
 ⚡ **Immediate Observations:**
 
@@ -325,14 +326,9 @@ WHERE ly.block_key IS NOT NULL
 
 **4. Performance Analysis:**
 ```sql
--- Get execution plan
+-- Get execution plan for your exact query
 EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) 
-SELECT ly.*,ex.probation_period_end_date,b."Block Start End Dates" 
-FROM public.vw_fact_examiner_block_calculation_last_1year ly
-LEFT JOIN public.dim_examiner ex ON ly.marker_code = ex.examiner_code
-LEFT JOIN public.vw_dim_block b ON ly.block_key = b.block_key
-WHERE ly.block_key IS NOT NULL
-AND b.start_date >= ex.probation_period_end_date;
+{sql_query};
 
 -- Check table sizes
 SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
