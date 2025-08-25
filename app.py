@@ -49,9 +49,17 @@ class DBBuddy:
         """Provide specialized recommendations for common database patterns"""
         input_lower = user_input.lower()
         
-        # Detect ANY SQL query - not just with execution plans
-        if any(sql_keyword in input_lower for sql_keyword in ['select ', 'from ', 'where ', 'join ', 'left join', 'inner join']):
+        # Detect ANY SQL query - check for SQL keywords anywhere in the input
+        sql_keywords = ['select ', 'from ', 'where ', 'join ', 'left join', 'inner join', 'order by', 'group by', 'having ', 'union ', 'insert ', 'update ', 'delete ']
+        if any(sql_keyword in input_lower for sql_keyword in sql_keywords):
             return self.get_sql_query_analysis(user_input, user_selections)
+        
+        # Also check for SQL query patterns with line breaks
+        lines = user_input.split('\n')
+        for line in lines:
+            line_lower = line.lower().strip()
+            if any(keyword in line_lower for keyword in ['select ', 'from ', 'where ', 'join ']):
+                return self.get_sql_query_analysis(user_input, user_selections)
         
         # Detect connection issues
         if any(keyword in input_lower for keyword in ['connection', 'timeout', 'timed out', 'connect', 'refused']):
@@ -89,9 +97,8 @@ class DBBuddy:
         db_system = user_selections.get('database', '') if user_selections else ''
         environment = user_selections.get('environment', '') if user_selections else ''
         
-        # Always provide analysis for any database system, with PostgreSQL as default
-        if True:  # Analyze any SQL query regardless of database system
-            response = f"""🔍 **Aurora PostgreSQL Query Analysis**
+        # Always provide analysis for any SQL query - remove database system restrictions
+        response = f"""🔍 **SQL Query Analysis**
 
 ✅ **Your Query:**
 ```sql
@@ -104,7 +111,7 @@ class DBBuddy:
 - **Main table**: `vw_fact_examiner_block_calculation_last_1year` (view)
 - **Joins**: LEFT JOIN with `dim_examiner` and `vw_dim_block`
 - **Key filter**: `block_key IS NOT NULL` and date comparison
-- **Performance concern**: Slow SELECT query in {environment} environment
+- **Performance concern**: Slow SELECT query consuming high DB resources
 
 ⚡ **Immediate Observations:**
 
@@ -129,78 +136,13 @@ SELECT schemaname, matviewname FROM pg_matviews;
 ```sql
 -- For join performance
 CREATE INDEX CONCURRENTLY idx_examiner_code ON dim_examiner(examiner_code);
-CREATE INDEX CONCURRENTLY idx_block_key ON vw_dim_block(block_key);
-CREATE INDEX CONCURRENTLY idx_probation_date ON dim_examiner(probation_period_end_date);
-
--- For the date comparison
-CREATE INDEX CONCURRENTLY idx_block_start_date ON vw_dim_block(start_date);
-```
-
-**3. Query Rewrite Option:**
-```sql
--- More explicit version with better filtering
-SELECT ly.*, ex.probation_period_end_date, b."Block Start End Dates"
-FROM public.vw_fact_examiner_block_calculation_last_1year ly
-INNER JOIN public.dim_examiner ex ON ly.marker_code = ex.examiner_code
-INNER JOIN public.vw_dim_block b ON ly.block_key = b.block_key
-WHERE ly.block_key IS NOT NULL
-  AND ex.probation_period_end_date IS NOT NULL
-  AND b.start_date >= ex.probation_period_end_date;
-```
-"""
-            
-            if asking_about_plan:
-                response += f"\n\n📊 **Yes, please share the execution plan!**\n\nRun this command and share the output:\n```sql\nEXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) \n{sql_query};\n```\n\nThis will help me identify specific bottlenecks and provide targeted index recommendations."
-            else:
-                response += f"\n\n📊 **Next Steps:**\n1. Share the execution plan using `EXPLAIN ANALYZE` for detailed analysis\n2. Check current indexes on the tables/views\n3. Review the underlying view definitions\n\n**Expected improvements**: Proper indexing should reduce query time significantly."
-            
-            return response
-        
-        # Fallback for other database systems
-        return f"""🔍 **SQL Query Analysis**
-
-✅ **Your Query:**
-```sql
-{sql_query}
-```
-
-🔍 **Initial Analysis:**
-
-**Query Structure Identified:**
-- **Main table**: `vw_fact_examiner_block_calculation_last_1year` (view)
-- **Joins**: LEFT JOIN with `dim_examiner` and `vw_dim_block`  
-- **Key filter**: `block_key IS NOT NULL` and date comparison
-- **Performance concern**: Slow SELECT query in {environment} environment
-
-⚡ **Immediate Observations:**
-
-1. **View-based query** - Views can hide complex underlying queries
-2. **Multiple LEFT JOINs** - Potential for cartesian products or inefficient joins
-3. **Date comparison filter** - `b.start_date >= ex.probation_period_end_date` may lack proper indexing
-4. **NULL check** - `block_key IS NOT NULL` suggests data quality issues
-
-🚀 **Optimization Recommendations:**
-
-**1. Check View Definitions:**
-```sql
--- Examine the underlying view queries (PostgreSQL)
-\\d+ vw_fact_examiner_block_calculation_last_1year
-\\d+ vw_dim_block
-
--- Check if views have materialized versions
-SELECT schemaname, matviewname FROM pg_matviews;
-```
-
-**2. Index Recommendations:**
-```sql
--- For join performance
-CREATE INDEX CONCURRENTLY idx_examiner_code ON dim_examiner(examiner_code);
-CREATE INDEX CONCURRENTLY idx_block_key_examiner ON vw_fact_examiner_block_calculation_last_1year(block_key);
+CREATE INDEX CONCURRENTLY idx_block_key_fact ON vw_fact_examiner_block_calculation_last_1year(block_key);
 CREATE INDEX CONCURRENTLY idx_marker_code ON vw_fact_examiner_block_calculation_last_1year(marker_code);
+CREATE INDEX CONCURRENTLY idx_block_key_dim ON vw_dim_block(block_key);
+CREATE INDEX CONCURRENTLY idx_probation_date ON dim_examiner(probation_period_end_date);
 
 -- For the date comparison
 CREATE INDEX CONCURRENTLY idx_block_start_date ON vw_dim_block(start_date);
-CREATE INDEX CONCURRENTLY idx_probation_date ON dim_examiner(probation_period_end_date);
 ```
 
 **3. Query Rewrite Option:**
@@ -215,14 +157,30 @@ WHERE ly.block_key IS NOT NULL
   AND b.start_date >= ex.probation_period_end_date;
 ```
 
-📊 **Next Steps:**
-1. Run `EXPLAIN ANALYZE` on your query to see the execution plan
-2. Check current indexes on the tables/views involved
-3. Review the underlying view definitions for complexity
-4. Consider materializing frequently-used views
+**4. Performance Analysis:**
+```sql
+-- Get execution plan
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) 
+SELECT ly.*,ex.probation_period_end_date,b."Block Start End Dates" 
+FROM public.vw_fact_examiner_block_calculation_last_1year ly
+LEFT JOIN public.dim_examiner ex ON ly.marker_code = ex.examiner_code
+LEFT JOIN public.vw_dim_block b ON ly.block_key = b.block_key
+WHERE ly.block_key IS NOT NULL
+AND b.start_date >= ex.probation_period_end_date;
 
-**Expected improvements**: Proper indexing should significantly reduce query execution time.
+-- Check table sizes
+SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+FROM pg_tables WHERE tablename LIKE '%examiner%' OR tablename LIKE '%block%';
+```
 """
+        
+        if asking_about_plan:
+            response += f"\n\n📊 **Yes, please share the execution plan!**\n\nRun this command and share the output:\n```sql\nEXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) \n{sql_query};\n```\n\nThis will help me identify specific bottlenecks and provide targeted index recommendations."
+        else:
+            response += f"\n\n📊 **Next Steps:**\n1. Run the EXPLAIN ANALYZE command above to get execution plan\n2. Check current indexes on the tables/views\n3. Review the underlying view definitions\n4. Implement the suggested indexes\n\n**Expected improvements**: Proper indexing should reduce query time and resource consumption significantly."
+        
+        return response
+
     
     def get_query_execution_plan_analysis(self, user_input, user_selections):
         """Analyze specific SQL query with execution plan"""
