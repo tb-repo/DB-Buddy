@@ -1023,26 +1023,7 @@ Choose option 1 if the user's answers are vague or you need technical details. C
             'timestamp': datetime.now()
         }
         
-        # Generate intelligent welcome message based on service type
-        service_desc = self.service_descriptions.get(issue_type, 'database assistance')
-        
-        welcome_prompt = f"""You are DB-Buddy, a senior database expert. A user just selected {service_desc} assistance. 
-        
-Generate a warm, professional welcome message that:
-1. Welcomes them to the specific service
-2. Briefly explains what you can help with
-3. Asks them to describe their situation in their own words
-4. Mentions they can use the dropdowns above for system details
-
-Keep it conversational and encouraging. No bullet points or rigid structure."""
-        
-        # Get AI-generated welcome message
-        if self.use_ai:
-            ai_welcome = self.get_ai_response("", welcome_prompt, {})
-            if ai_welcome:
-                return ai_welcome
-        
-        # Fallback welcome messages
+        # Use immediate fallback messages for fast response
         fallback_messages = {
             'troubleshooting': "👋 Hi! I'm here to help you troubleshoot database issues. What problem are you experiencing? Feel free to describe it in your own words - I'll understand and provide targeted solutions.",
             'query': "👋 Hello! I specialize in SQL query optimization. Share your query and describe what's happening - slow performance, errors, or anything else. I'll analyze it and provide specific recommendations.",
@@ -1146,9 +1127,11 @@ Keep it conversational and encouraging. No bullet points or rigid structure."""
         
         conv = self.conversations[session_id]
         
-        # Initialize user_selections if not exists
+        # Initialize conversation history if not exists
         if 'user_selections' not in conv:
             conv['user_selections'] = {}
+        if 'conversation_history' not in conv:
+            conv['conversation_history'] = []
         
         # Process image if provided
         image_analysis = None
@@ -1168,23 +1151,32 @@ Keep it conversational and encouraging. No bullet points or rigid structure."""
             except Exception as e:
                 image_analysis = {'error': f'Image processing failed: {str(e)}'}
         
+        # Store user input
         conv['answers'].append(answer)
         conv['step'] += 1
-        
-        # Save to memory after each interaction
-        # Convert datetime objects to strings for JSON serialization
-        conv_for_memory = conv.copy()
-        if 'timestamp' in conv_for_memory and isinstance(conv_for_memory['timestamp'], datetime):
-            conv_for_memory['timestamp'] = conv_for_memory['timestamp'].isoformat()
-        self.memory.save_conversation(session_id, conv_for_memory)
         
         # Parse LOV selections if present
         if self.contains_lov_selections(answer):
             selections = self.parse_lov_selections(answer)
             conv['user_selections'].update(selections)
         
-        # Always use intelligent conversation - no predefined flows
-        return self.get_intelligent_response(conv, answer)
+        # Generate intelligent response
+        bot_response = self.get_intelligent_response(conv, answer)
+        
+        # Store complete conversation exchange
+        conv['conversation_history'].append({
+            'user_input': answer,
+            'bot_response': bot_response,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+        # Save to memory after each interaction
+        conv_for_memory = conv.copy()
+        if 'timestamp' in conv_for_memory and isinstance(conv_for_memory['timestamp'], datetime):
+            conv_for_memory['timestamp'] = conv_for_memory['timestamp'].isoformat()
+        self.memory.save_conversation(session_id, conv_for_memory)
+        
+        return bot_response
     
     def get_intelligent_response(self, conversation, user_input):
         """Generate intelligent, contextual responses based on user input"""
