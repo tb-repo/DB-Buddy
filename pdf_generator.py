@@ -305,7 +305,7 @@ class PDFReportGenerator:
             return "Provided comprehensive analysis, identified key issues, recommended solutions, and outlined implementation steps."
     
     def generate_executive_summary(self, conversation_data, summary_data):
-        """Generate comprehensive executive summary with detailed analysis"""
+        """Generate comprehensive executive summary with proper formatting"""
         service_type = conversation_data.get('type', 'general')
         num_queries = len(summary_data['sql_queries'])
         num_inputs = len(summary_data['key_inputs'])
@@ -316,55 +316,87 @@ class PDFReportGenerator:
         priority_level = self.determine_priority_level(conversation_data)
         implementation_complexity = self.assess_implementation_complexity(summary_data)
         
-        summary = f"""<b>EXECUTIVE SUMMARY</b>
+        # Build summary with proper paragraph structure
+        summary_parts = []
         
-        <b>Consultation Overview:</b>
-        This {service_type} consultation session provided comprehensive database analysis and actionable recommendations. The session identified {priority_level} priority issues requiring {implementation_complexity} implementation effort.
+        # Overview section
+        summary_parts.append(f"<b>Consultation Overview:</b><br/>")
+        summary_parts.append(f"This {service_type} consultation session provided comprehensive database analysis and actionable recommendations. The session identified {priority_level} priority issues requiring {implementation_complexity} implementation effort.<br/><br/>")
         
-        <b>Key Metrics:</b>
-        • Service Category: {service_type.title()} Optimization
-        • SQL Queries Analyzed: {num_queries} queries
-        • Technical Data Points: {num_inputs} key inputs
-        • Recommendations Generated: {len(summary_data['recommendations'])} actionable items
-        • Conversation Depth: {len(conversation_history)} detailed exchanges
+        # Key Metrics section
+        summary_parts.append(f"<b>Key Metrics:</b><br/>")
+        summary_parts.append(f"• Service Category: {service_type.title()} Optimization<br/>")
+        summary_parts.append(f"• SQL Queries Analyzed: {num_queries} queries<br/>")
+        summary_parts.append(f"• Technical Data Points: {num_inputs} key inputs<br/>")
+        summary_parts.append(f"• Recommendations Generated: {len(summary_data['recommendations'])} actionable items<br/>")
+        summary_parts.append(f"• Conversation Depth: {len(conversation_history)} detailed exchanges<br/><br/>")
         
-        <b>Performance Impact Assessment:</b>
-        {performance_impact}
+        # Performance Impact section
+        summary_parts.append(f"<b>Performance Impact Assessment:</b><br/>")
+        summary_parts.append(f"{performance_impact}<br/><br/>")
         
-        <b>Priority Recommendations:</b>
-        {self.format_priority_recommendations(summary_data, service_type)}
+        # Priority Recommendations section
+        summary_parts.append(f"<b>Priority Recommendations:</b><br/>")
+        priority_recs = self.format_priority_recommendations(summary_data, service_type)
+        for line in priority_recs.split('\n'):
+            if line.strip():
+                summary_parts.append(f"{line.strip()}<br/>")
+        summary_parts.append("<br/>")
         
-        <b>Implementation Roadmap:</b>
+        # Implementation Roadmap section
+        summary_parts.append(f"<b>Implementation Roadmap:</b><br/><br/>")
         
-        <i>Phase 1 - Immediate Actions (0-2 weeks):</i>
-        {self.get_immediate_actions(service_type, summary_data)}
+        # Phase 1
+        summary_parts.append(f"<i>Phase 1 - Immediate Actions (0-2 weeks):</i><br/>")
+        immediate_actions = self.get_immediate_actions(service_type, summary_data)
+        for line in immediate_actions.split('\n'):
+            if line.strip():
+                summary_parts.append(f"{line.strip()}<br/>")
+        summary_parts.append("<br/>")
         
-        <i>Phase 2 - Short-term Improvements (2-8 weeks):</i>
-        {self.get_short_term_actions(service_type, summary_data)}
+        # Phase 2
+        summary_parts.append(f"<i>Phase 2 - Short-term Improvements (2-8 weeks):</i><br/>")
+        short_term_actions = self.get_short_term_actions(service_type, summary_data)
+        for line in short_term_actions.split('\n'):
+            if line.strip():
+                summary_parts.append(f"{line.strip()}<br/>")
+        summary_parts.append("<br/>")
         
-        <i>Phase 3 - Long-term Optimization (2-6 months):</i>
-        {self.get_long_term_actions(service_type)}
+        # Phase 3
+        summary_parts.append(f"<i>Phase 3 - Long-term Optimization (2-6 months):</i><br/>")
+        long_term_actions = self.get_long_term_actions(service_type)
+        for line in long_term_actions.split('\n'):
+            if line.strip():
+                summary_parts.append(f"{line.strip()}<br/>")
+        summary_parts.append("<br/>")
         
-        <b>Risk Assessment:</b>
-        • Implementation Risk: {implementation_complexity.title()}
-        • Business Impact: {priority_level.title()}
-        • Resource Requirements: {self.estimate_resources(service_type)}
+        # Risk Assessment section
+        summary_parts.append(f"<b>Risk Assessment:</b><br/>")
+        summary_parts.append(f"• Implementation Risk: {implementation_complexity.title()}<br/>")
+        summary_parts.append(f"• Business Impact: {priority_level.title()}<br/>")
+        summary_parts.append(f"• Resource Requirements: {self.estimate_resources(service_type)}<br/><br/>")
         
-        <b>Success Metrics:</b>
-        {self.define_success_metrics(service_type)}
+        # Success Metrics section
+        summary_parts.append(f"<b>Success Metrics:</b><br/>")
+        success_metrics = self.define_success_metrics(service_type)
+        for line in success_metrics.split('\n'):
+            if line.strip():
+                summary_parts.append(f"{line.strip()}<br/>")
+        summary_parts.append("<br/>")
         
-        <b>Next Steps & Accountability:</b>
-        1. <b>Technical Review</b>: Validate recommendations in development environment
-        2. <b>Resource Planning</b>: Allocate necessary team members and time
-        3. <b>Implementation</b>: Execute Phase 1 actions within 2 weeks
-        4. <b>Monitoring</b>: Establish baseline metrics before changes
-        5. <b>Follow-up</b>: Schedule progress review in 30 days
+        # Next Steps section
+        summary_parts.append(f"<b>Next Steps & Accountability:</b><br/>")
+        summary_parts.append(f"1. <b>Technical Review:</b> Validate recommendations in development environment<br/>")
+        summary_parts.append(f"2. <b>Resource Planning:</b> Allocate necessary team members and time<br/>")
+        summary_parts.append(f"3. <b>Implementation:</b> Execute Phase 1 actions within 2 weeks<br/>")
+        summary_parts.append(f"4. <b>Monitoring:</b> Establish baseline metrics before changes<br/>")
+        summary_parts.append(f"5. <b>Follow-up:</b> Schedule progress review in 30 days<br/><br/>")
         
-        <b>Consultation Value:</b>
-        This session provides an estimated {self.calculate_value_proposition(service_type)} improvement in database performance and operational efficiency.
-        """
+        # Consultation Value section
+        summary_parts.append(f"<b>Consultation Value:</b><br/>")
+        summary_parts.append(f"This session provides an estimated {self.calculate_value_proposition(service_type)} improvement in database performance and operational efficiency.")
         
-        return summary
+        return ''.join(summary_parts)
     
     def format_message_content(self, content):
         """Format message content for PDF display with better text handling"""
@@ -474,7 +506,7 @@ class PDFReportGenerator:
         for i, rec in enumerate(recommendations, 1):
             formatted.append(f"{i}. {rec}")
         
-        return '\n        '.join(formatted) if formatted else 'Standard best practices implementation recommended.'
+        return '\n'.join(formatted) if formatted else 'Standard best practices implementation recommended.'
     
     def get_immediate_actions(self, service_type, summary_data):
         """Get immediate action items"""
