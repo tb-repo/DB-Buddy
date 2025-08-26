@@ -690,31 +690,31 @@ if not st.session_state.show_history:
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; height: 200px; display: flex; flex-direction: column; justify-content: center;'>
+            st.markdown("""<div style='background: white; padding: 1.5rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; min-height: 180px;'>
                 <div style='font-size: 2.5rem; margin-bottom: 1rem;'>🚀</div>
-                <h3 style='margin-bottom: 0.5rem; color: #374151;'>10x Faster</h3>
-                <p style='color: #6b7280; font-size: 0.9rem;'>Get instant solutions instead of hours of research</p>
+                <h3 style='margin-bottom: 0.5rem; color: #374151; font-size: 1.1rem;'>10x Faster</h3>
+                <p style='color: #6b7280; font-size: 0.85rem; line-height: 1.4;'>Get instant solutions instead of hours of research</p>
             </div>""", unsafe_allow_html=True)
         
         with col2:
-            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; height: 200px; display: flex; flex-direction: column; justify-content: center;'>
+            st.markdown("""<div style='background: white; padding: 1.5rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; min-height: 180px;'>
                 <div style='font-size: 2.5rem; margin-bottom: 1rem;'>🔬</div>
-                <h3 style='margin-bottom: 0.5rem; color: #374151;'>Deep Analysis</h3>
-                <p style='color: #6b7280; font-size: 0.9rem;'>Paste SQL queries for immediate optimization recommendations</p>
+                <h3 style='margin-bottom: 0.5rem; color: #374151; font-size: 1.1rem;'>Deep Analysis</h3>
+                <p style='color: #6b7280; font-size: 0.85rem; line-height: 1.4;'>Paste SQL queries for immediate optimization recommendations</p>
             </div>""", unsafe_allow_html=True)
         
         with col3:
-            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; height: 200px; display: flex; flex-direction: column; justify-content: center;'>
+            st.markdown("""<div style='background: white; padding: 1.5rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; min-height: 180px;'>
                 <div style='font-size: 2.5rem; margin-bottom: 1rem;'>☁️</div>
-                <h3 style='margin-bottom: 0.5rem; color: #374151;'>Multi-Cloud</h3>
-                <p style='color: #6b7280; font-size: 0.9rem;'>AWS, Azure, GCP expertise with cloud-specific best practices</p>
+                <h3 style='margin-bottom: 0.5rem; color: #374151; font-size: 1.1rem;'>Multi-Cloud</h3>
+                <p style='color: #6b7280; font-size: 0.85rem; line-height: 1.4;'>AWS, Azure, GCP expertise with cloud-specific best practices</p>
             </div>""", unsafe_allow_html=True)
         
         with col4:
-            st.markdown("""<div style='background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; height: 200px; display: flex; flex-direction: column; justify-content: center;'>
+            st.markdown("""<div style='background: white; padding: 1.5rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; min-height: 180px;'>
                 <div style='font-size: 2.5rem; margin-bottom: 1rem;'>🛡️</div>
-                <h3 style='margin-bottom: 0.5rem; color: #374151;'>Production-Ready</h3>
-                <p style='color: #6b7280; font-size: 0.9rem;'>Enterprise-grade solutions with security & scalability</p>
+                <h3 style='margin-bottom: 0.5rem; color: #374151; font-size: 1.1rem;'>Production-Ready</h3>
+                <p style='color: #6b7280; font-size: 0.85rem; line-height: 1.4;'>Enterprise-grade solutions with security & scalability</p>
             </div>""", unsafe_allow_html=True)
         
         # Benefits Section
