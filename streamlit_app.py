@@ -86,9 +86,9 @@ class StreamlitDBBuddy:
                     selection_context += f"• {key}: {value}\n"
             enhanced_context += selection_context
         
-        # Add conversation context for natural responses
-        enhanced_context += "\n\nUser's current message: " + user_input + "\n"
-        enhanced_context += "Respond naturally and conversationally to their specific situation. Provide technical depth when appropriate, but keep the tone friendly and professional.\n"
+        # Preserve formatting for execution plans and SQL queries
+        enhanced_context += "\n\nUser's current message (preserve exact formatting for SQL and execution plans): " + user_input + "\n"
+        enhanced_context += "IMPORTANT: If the user provided an execution plan or SQL query, preserve the exact formatting and line breaks. Analyze the specific metrics, costs, and operations shown. Respond naturally and conversationally to their specific situation. Provide technical depth when appropriate, but keep the tone friendly and professional.\n"
         
         # Build cloud-specific guidance
         cloud_guidance = ""
@@ -225,13 +225,34 @@ You MUST provide specific, actionable analysis of the user's actual query and ex
         """Provide specialized recommendations for common database patterns"""
         input_lower = user_input.lower()
         
+        # Detect execution plans first (higher priority)
+        execution_plan_indicators = [
+            'execution time:', 'planning time:', 'hash join', 'nested loop', 'seq scan', 'index scan',
+            'bitmap heap scan', 'sort', 'aggregate', 'rows removed by filter', 'buffers:', 'cost=',
+            'actual time=', 'rows=', 'loops=', 'explain analyze', 'explain plan', 'query plan'
+        ]
+        
+        if any(indicator in input_lower for indicator in execution_plan_indicators):
+            return self.get_query_execution_plan_analysis(user_input, user_selections)
+        
+        # Check for execution plan patterns in lines (preserve formatting)
+        lines = user_input.split('\n')
+        plan_pattern_count = 0
+        for line in lines:
+            line_lower = line.lower().strip()
+            if any(pattern in line_lower for pattern in ['->  ', 'cost=', 'actual time=', 'rows=', 'buffers:']):
+                plan_pattern_count += 1
+        
+        # If we find multiple execution plan patterns, treat as execution plan
+        if plan_pattern_count >= 2:
+            return self.get_query_execution_plan_analysis(user_input, user_selections)
+        
         # Detect ANY SQL query - check for SQL keywords anywhere in the input
         sql_keywords = ['select ', 'from ', 'where ', 'join ', 'left join', 'inner join', 'order by', 'group by', 'having ', 'union ', 'insert ', 'update ', 'delete ']
         if any(sql_keyword in input_lower for sql_keyword in sql_keywords):
             return self.get_sql_query_analysis(user_input, user_selections)
         
         # Also check for SQL query patterns with line breaks
-        lines = user_input.split('\n')
         for line in lines:
             line_lower = line.lower().strip()
             if any(keyword in line_lower for keyword in ['select ', 'from ', 'where ', 'join ']):
@@ -350,78 +371,113 @@ FROM pg_tables WHERE tablename LIKE '%examiner%' OR tablename LIKE '%block%';
 
     
     def get_query_execution_plan_analysis(self, user_input, user_selections):
-        """Analyze specific SQL query with execution plan"""
+        """Analyze execution plan with preserved formatting"""
         lines = user_input.split('\n')
         
-        # Find the SQL query
-        sql_query = ""
-        for line in lines:
-            if 'SELECT ' in line.upper():
-                sql_query = line.strip()
-                break
+        # Extract key metrics from execution plan
+        execution_time = "Unknown"
+        planning_time = "Unknown"
+        total_cost = "Unknown"
+        actual_rows = "Unknown"
         
-        # Extract execution time
-        execution_time = ""
+        # Find execution metrics
         for line in lines:
-            if 'Execution Time:' in line:
-                execution_time = line.strip()
-                break
+            if 'execution time:' in line.lower():
+                execution_time = line.split(':')[1].strip() if ':' in line else "Unknown"
+            elif 'planning time:' in line.lower():
+                planning_time = line.split(':')[1].strip() if ':' in line else "Unknown"
+            elif 'cost=' in line.lower() and 'rows=' in line.lower():
+                # Extract cost and rows from plan lines
+                if 'cost=' in line:
+                    cost_part = line.split('cost=')[1].split(')')[0] if 'cost=' in line else ""
+                    if '..' in cost_part:
+                        total_cost = cost_part.split('..')[-1]
+                if 'rows=' in line:
+                    rows_part = line.split('rows=')[1].split(' ')[0] if 'rows=' in line else ""
+                    actual_rows = rows_part
+        
+        # Identify performance issues from plan
+        performance_issues = []
+        optimization_recommendations = []
+        
+        plan_text = user_input.lower()
+        
+        # Detect common performance problems
+        if 'seq scan' in plan_text:
+            performance_issues.append("Sequential table scans detected - missing indexes")
+            optimization_recommendations.append("Create indexes on frequently queried columns")
+        
+        if 'bitmap heap scan' in plan_text and ('filter' in plan_text or 'recheck' in plan_text):
+            performance_issues.append("Bitmap heap scan with high filter cost")
+            optimization_recommendations.append("Create more selective indexes or composite indexes")
+        
+        if 'hash join' in plan_text and ('cost=' in plan_text):
+            performance_issues.append("Expensive hash joins detected")
+            optimization_recommendations.append("Optimize join conditions and ensure proper indexing")
+        
+        if 'sort' in plan_text and 'external merge' in plan_text:
+            performance_issues.append("External sorting using disk - memory pressure")
+            optimization_recommendations.append("Increase work_mem or optimize query to reduce sorting")
+        
+        if any(time_indicator in plan_text for time_indicator in ['ms', 'seconds']) and any(high_time in execution_time.lower() for high_time in ['sec', 'min']):
+            performance_issues.append("High execution time detected")
+            optimization_recommendations.append("Focus on most expensive operations in the plan")
+        
+        # Extract table names from plan
+        table_names = []
+        for line in lines:
+            if 'scan on' in line.lower():
+                parts = line.lower().split('scan on')
+                if len(parts) > 1:
+                    table_name = parts[1].strip().split(' ')[0]
+                    if table_name not in table_names:
+                        table_names.append(table_name)
         
         db_system = user_selections.get('database', '') if user_selections else ''
         
-        if 'postgres' in db_system.lower() or 'aurora' in db_system.lower():
-            return f"""🔍 **Aurora PostgreSQL Query Performance Analysis**
+        response = f"""🔍 **Execution Plan Analysis**
 
-✅ **Query Analysis:**
-```sql
-{sql_query}
-```
+📊 **Performance Metrics:**
+- **Execution Time**: {execution_time}
+- **Planning Time**: {planning_time}
+- **Total Cost**: {total_cost}
+- **Estimated Rows**: {actual_rows}
 
-🔍 **Execution Plan Issues Identified:**
-
-**Major Performance Problems:**
-1. **Bitmap Heap Scan with High Filter Cost** - 182+ seconds execution time
-2. **ILIKE Pattern Matching** - `%Student%` and `%ID%` require full text scans
-3. **Multiple String Filters** - first_name, middle_name, last_name all using ILIKE
-4. **Large Data Set** - 40GB table with 884K+ rows being scanned
-5. **Filter Inefficiency** - 725K rows removed by recheck, 294K by filter
-
-⚡ **Immediate Index Recommendations:**
-
-**1. Create Composite Index for Date + Text Search:**
-```sql
--- For your specific query pattern
-CREATE INDEX CONCURRENTLY idx_customer_search_optimized 
-ON customer_ms.customer (updated_datetime, first_name, middle_name, last_name) 
-WHERE updated_datetime >= '2025-01-01';
-```
-
-**2. Create Text Search Indexes:**
-```sql
--- For ILIKE pattern matching
-CREATE INDEX CONCURRENTLY idx_customer_names_gin 
-ON customer_ms.customer USING gin (
-    (first_name || ' ' || middle_name || ' ' || last_name) gin_trgm_ops
-);
-
--- Enable trigram extension first
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-```
-
-📊 **Expected Performance Improvements:**
-- **Current**: 182+ seconds
-- **With composite index**: ~2-5 seconds
-- **With text search optimization**: ~0.5-2 seconds
-
-🎯 **Immediate Action Plan:**
-1. Create the composite index first (biggest impact)
-2. Install pg_trgm extension for better ILIKE performance
-3. Rewrite query with LIMIT to prevent runaway execution
-4. Monitor index usage and query performance
-
-**Expected Result**: Query should execute in under 5 seconds instead of 3+ minutes."""
+⚠️ **Performance Issues Identified:**
+"""
         
-        return "Query execution plan analysis available for PostgreSQL/Aurora."
+        for i, issue in enumerate(performance_issues, 1):
+            response += f"{i}. {issue}\n"
+        
+        if not performance_issues:
+            response += "No major performance issues detected in the execution plan.\n"
+        
+        response += f"\n⚡ **Optimization Recommendations:**\n"
+        
+        for i, rec in enumerate(optimization_recommendations, 1):
+            response += f"{i}. {rec}\n"
+        
+        if table_names:
+            response += f"\n🔍 **Tables Involved:**\n"
+            for table in table_names:
+                response += f"- `{table}`\n"
+            
+            response += f"\n📋 **Diagnostic Commands:**\n```sql\n"
+            for table in table_names[:3]:  # Limit to first 3 tables
+                response += f"-- Check indexes on {table}\n"
+                response += f"SELECT schemaname, tablename, indexname, indexdef FROM pg_indexes WHERE tablename = '{table}';\n\n"
+                response += f"-- Check table statistics for {table}\n"
+                response += f"SELECT schemaname, tablename, n_tup_ins, n_tup_upd, n_tup_del, last_analyze FROM pg_stat_user_tables WHERE relname = '{table}';\n\n"
+            response += "```\n"
+        
+        response += f"\n🎯 **Next Steps:**\n"
+        response += "1. Run the diagnostic commands above to gather more information\n"
+        response += "2. Focus on the most expensive operations in your execution plan\n"
+        response += "3. Create appropriate indexes based on WHERE clauses and JOIN conditions\n"
+        response += "4. Consider query rewriting if the plan shows inefficient patterns\n"
+        response += "5. Update table statistics with ANALYZE command\n"
+        
+        return response
     
     def get_connection_troubleshooting_recommendation(self, user_input, user_selections):
         """Specialized recommendations for database connection issues"""
