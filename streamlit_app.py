@@ -559,7 +559,7 @@ if 'show_history' not in st.session_state:
 
 # Header
 st.title("🗄️ DB-Buddy - AI Database Assistant")
-st.markdown("Your AI-powered database assistant for instant solutions")
+st.markdown("Your AI-powered database assistant that replaces hours of research with instant, expert solutions")
 
 # Sidebar for service selection and history
 with st.sidebar:
@@ -682,9 +682,8 @@ if not st.session_state.show_history:
                 st.markdown(message["content"])
     else:
         # Show welcome screen when no conversation is active
-        st.markdown("""<div style='text-align: center; padding: 2rem 0;'>
-            <h1 style='font-size: 3rem; margin-bottom: 1rem; color: #374151;'>🗄️ Welcome to DB-Buddy</h1>
-            <p style='font-size: 1.3rem; color: #6b7280; margin-bottom: 3rem; max-width: 800px; margin-left: auto; margin-right: auto;'>Your AI-powered database assistant that replaces hours of research with instant, expert solutions</p>
+        st.markdown("""<div style='text-align: center; padding: 1rem 0;'>
+            <h2 style='font-size: 2rem; margin-bottom: 2rem; color: #374151;'>Choose Your Database Challenge</h2>
         </div>""", unsafe_allow_html=True)
         
         # Value Proposition Section
