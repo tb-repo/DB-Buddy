@@ -599,6 +599,38 @@ with st.sidebar:
             st.session_state.show_history = not st.session_state.show_history
             st.rerun()
     
+    # Quick Setup in sidebar
+    st.subheader("Quick Setup")
+    
+    deployment = st.selectbox("Deployment:", ["", "On-Premises", "Cloud", "Hybrid"])
+    
+    cloud_provider = st.selectbox("Cloud Provider:", 
+        ["", "AWS", "Azure", "GCP", "Oracle Cloud", "IBM Cloud"],
+        disabled=deployment != "Cloud"
+    )
+    
+    if deployment == "Cloud" and cloud_provider == "AWS":
+        db_options = ["", "Amazon RDS MySQL", "Amazon RDS PostgreSQL", "Amazon Aurora MySQL", "Amazon Aurora PostgreSQL", "Amazon DynamoDB"]
+    elif deployment == "Cloud" and cloud_provider == "Azure":
+        db_options = ["", "Azure Database for MySQL", "Azure Database for PostgreSQL", "Azure SQL Database", "Azure Cosmos DB"]
+    else:
+        db_options = ["", "MySQL", "PostgreSQL", "SQL Server", "Oracle", "MongoDB", "Redis"]
+    
+    database = st.selectbox("Database System:", db_options)
+    
+    environment = st.selectbox("Environment:", ["", "Development", "Staging", "Production"])
+    
+    if st.button("Insert Selections"):
+        if any([deployment, cloud_provider, database, environment]):
+            selection_text = ""
+            if deployment: selection_text += f"Deployment: {deployment}\n"
+            if cloud_provider: selection_text += f"Cloud Provider: {cloud_provider}\n"
+            if database: selection_text += f"Database System: {database}\n"
+            if environment: selection_text += f"Environment: {environment}\n"
+            
+            st.session_state.messages.append({"role": "user", "content": selection_text.strip()})
+            st.rerun()
+    
     # Show conversation history
     if st.session_state.show_history:
         st.subheader("Past Conversations")
@@ -628,42 +660,15 @@ with st.sidebar:
         else:
             st.write("No past conversations found.")
 
-# LOV Selectors
-st.subheader("Quick Setup")
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    deployment = st.selectbox("Deployment:", ["", "On-Premises", "Cloud", "Hybrid"])
-
-with col2:
-    cloud_provider = st.selectbox("Cloud Provider:", 
-        ["", "AWS", "Azure", "GCP", "Oracle Cloud", "IBM Cloud"],
-        disabled=deployment != "Cloud"
-    )
-
-with col3:
-    if deployment == "Cloud" and cloud_provider == "AWS":
-        db_options = ["", "Amazon RDS MySQL", "Amazon RDS PostgreSQL", "Amazon Aurora MySQL", "Amazon Aurora PostgreSQL", "Amazon DynamoDB"]
-    elif deployment == "Cloud" and cloud_provider == "Azure":
-        db_options = ["", "Azure Database for MySQL", "Azure Database for PostgreSQL", "Azure SQL Database", "Azure Cosmos DB"]
-    else:
-        db_options = ["", "MySQL", "PostgreSQL", "SQL Server", "Oracle", "MongoDB", "Redis"]
-    
-    database = st.selectbox("Database System:", db_options)
-
-with col4:
-    environment = st.selectbox("Environment:", ["", "Development", "Staging", "Production"])
-
-if st.button("Insert Selections"):
-    if any([deployment, cloud_provider, database, environment]):
-        selection_text = ""
-        if deployment: selection_text += f"Deployment: {deployment}\n"
-        if cloud_provider: selection_text += f"Cloud Provider: {cloud_provider}\n"
-        if database: selection_text += f"Database System: {database}\n"
-        if environment: selection_text += f"Environment: {environment}\n"
-        
-        st.session_state.messages.append({"role": "user", "content": selection_text.strip()})
-        st.rerun()
+# Call to Action at top
+st.markdown("""<div style='background: linear-gradient(135deg, #3b82f6, #2563eb); padding: 2rem; border-radius: 20px; margin-bottom: 2rem; text-align: center; color: white;'>
+    <h2 style='color: white; margin-bottom: 1rem; font-size: 1.8rem;'>🚀 Ready to Solve Your Database Challenges?</h2>
+    <p style='font-size: 1.1rem; margin-bottom: 1.5rem; opacity: 0.9;'>Join thousands of developers and DBAs who save hours every week with DB-Buddy</p>
+    <div style='background: rgba(255,255,255,0.1); padding: 1.2rem; border-radius: 15px;'>
+        <h4 style='color: white; margin-bottom: 0.8rem;'>Get Started in 3 Simple Steps:</h4>
+        <p style='color: white; opacity: 0.9; margin: 0;'>1. Select a service from the sidebar → 2. Click "New Chat" → 3. Describe your database challenge</p>
+    </div>
+</div>""", unsafe_allow_html=True)
 
 # Main Content Area
 if not st.session_state.show_history:
@@ -864,15 +869,7 @@ if not st.session_state.show_history:
                 <p style='color: #6b7280;'>Access control, encryption, auditing, compliance requirements, and data protection</p>
             </div>""", unsafe_allow_html=True)
         
-        # Call to Action
-        st.markdown("""<div style='background: linear-gradient(135deg, #3b82f6, #2563eb); padding: 3rem; border-radius: 20px; margin-top: 3rem; text-align: center; color: white;'>
-            <h2 style='color: white; margin-bottom: 1rem; font-size: 2rem;'>🚀 Ready to Solve Your Database Challenges?</h2>
-            <p style='font-size: 1.2rem; margin-bottom: 2rem; opacity: 0.9;'>Join thousands of developers and DBAs who save hours every week with DB-Buddy</p>
-            <div style='background: rgba(255,255,255,0.1); padding: 1.5rem; border-radius: 15px; margin-top: 2rem;'>
-                <h4 style='color: white; margin-bottom: 1rem;'>Get Started in 3 Simple Steps:</h4>
-                <p style='color: white; opacity: 0.9; margin: 0;'>1. Select a service from the sidebar → 2. Click "New Chat" → 3. Describe your database challenge</p>
-            </div>
-        </div>""", unsafe_allow_html=True)
+
 
 # Chat input and file upload (only show when conversation is active)
 if not st.session_state.show_history and st.session_state.current_issue_type and st.session_state.messages:
