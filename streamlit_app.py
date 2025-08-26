@@ -90,15 +90,9 @@ class StreamlitDBBuddy:
         enhanced_context += "\n\nUser's current message (preserve exact formatting for SQL and execution plans): " + user_input + "\n"
         enhanced_context += "IMPORTANT: If the user provided an execution plan or SQL query, preserve the exact formatting and line breaks. Analyze the specific metrics, costs, and operations shown. Respond naturally and conversationally to their specific situation. Provide technical depth when appropriate, but keep the tone friendly and professional.\n"
         
-        # Build cloud-specific guidance
-        cloud_guidance = ""
-        if user_selections and user_selections.get('deployment') == 'Cloud':
-            cloud_provider = user_selections.get('cloud_provider', '')
-            db_system = user_selections.get('database', '')
-            
-            if 'AWS' in cloud_provider:
-                if 'Aurora' in db_system:
-                    cloud_guidance = "\n\nAWS AURORA SPECIFIC GUIDANCE:\n- Use DB Parameter Groups (not ALTER SYSTEM) for configuration changes\n- Monitor via CloudWatch metrics and Performance Insights\n- Use Aurora-specific features like Global Database, Backtrack, Serverless\n- Consider Aurora Auto Scaling for read replicas\n- Use RDS Proxy for connection pooling\n- Leverage Aurora's distributed storage for better I/O performance\n- Use Aurora Performance Insights for query-level analysis\n- Consider Aurora Serverless v2 for variable workloads\n"
+        # Build deployment-specific guidance
+        deployment_guidance = self.get_deployment_specific_guidance(user_selections)
+        cloud_guidance = deployment_guidance
         
         system_prompt = f"""You are DB-Buddy, a senior database performance specialist. You MUST analyze the specific SQL queries, execution plans, and technical details provided by users. Never give generic responses.
 
@@ -363,9 +357,17 @@ FROM pg_tables WHERE tablename LIKE '%examiner%' OR tablename LIKE '%block%';
 """
         
         if asking_about_plan:
-            response += f"\n\n📊 **Yes, please share the execution plan!**\n\nRun this command and share the output:\n```sql\nEXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) \n{sql_query};\n```\n\nThis will help me identify specific bottlenecks and provide targeted index recommendations."
+            # Add deployment-specific guidance for execution plans
+        deployment_guidance = self.get_deployment_specific_guidance(user_selections)
+        response += deployment_guidance
+        
+        response += f"\n\n📊 **Yes, please share the execution plan!**\n\nRun this command and share the output:\n```sql\nEXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) \n{sql_query};\n```\n\nThis will help me identify specific bottlenecks and provide targeted index recommendations."
         else:
-            response += f"\n\n📊 **Next Steps:**\n1. Run the EXPLAIN ANALYZE command above to get execution plan\n2. Check current indexes on the tables/views\n3. Review the underlying view definitions\n4. Implement the suggested indexes\n\n**Expected improvements**: Proper indexing should reduce query time and resource consumption significantly."
+            # Add deployment-specific next steps
+        deployment_guidance = self.get_deployment_specific_guidance(user_selections)
+        response += deployment_guidance
+        
+        response += f"\n\n📊 **Next Steps:**\n1. Run the EXPLAIN ANALYZE command above to get execution plan\n2. Check current indexes on the tables/views\n3. Review the underlying view definitions\n4. Implement the suggested indexes\n\n**Expected improvements**: Proper indexing should reduce query time and resource consumption significantly."
         
         return response
 
@@ -469,6 +471,10 @@ FROM pg_tables WHERE tablename LIKE '%examiner%' OR tablename LIKE '%block%';
                 response += f"-- Check table statistics for {table}\n"
                 response += f"SELECT schemaname, tablename, n_tup_ins, n_tup_upd, n_tup_del, last_analyze FROM pg_stat_user_tables WHERE relname = '{table}';\n\n"
             response += "```\n"
+        
+        # Add deployment-specific guidance
+        deployment_guidance = self.get_deployment_specific_guidance(user_selections)
+        response += deployment_guidance
         
         response += f"\n🎯 **Next Steps:**\n"
         response += "1. Run the diagnostic commands above to gather more information\n"
@@ -580,6 +586,77 @@ Keep it conversational and encouraging. No bullet points or rigid structure."""
         }
         
         return fallback_messages.get(service_type, "👋 Hello! How can I help you with your database needs today?")
+    
+    def get_deployment_specific_guidance(self, user_selections):
+        """Generate deployment and cloud-specific guidance"""
+        if not user_selections:
+            return ""
+        
+        deployment = user_selections.get('deployment', '')
+        cloud_provider = user_selections.get('cloud_provider', '')
+        db_system = user_selections.get('database', '')
+        environment = user_selections.get('environment', '')
+        
+        guidance = "\n\nDEPLOYMENT-SPECIFIC RECOMMENDATIONS:\n"
+        
+        if deployment == 'Cloud':
+            if 'AWS' in cloud_provider:
+                if 'Aurora' in db_system:
+                    guidance += "\n**AWS Aurora Specific:**\n"
+                    guidance += "- Use DB Parameter Groups for configuration (not ALTER SYSTEM)\n"
+                    guidance += "- Monitor via CloudWatch + Performance Insights\n"
+                    guidance += "- Use RDS Proxy for connection pooling and failover\n"
+                    guidance += "- Leverage Aurora Auto Scaling for read replicas\n"
+                    guidance += "- Consider Aurora Serverless v2 for variable workloads\n"
+                    guidance += "- Use Aurora Backtrack for point-in-time recovery\n"
+                    guidance += "- Enable Enhanced Monitoring for OS-level metrics\n"
+                elif 'RDS' in db_system:
+                    guidance += "\n**AWS RDS Specific:**\n"
+                    guidance += "- Use DB Parameter Groups for configuration\n"
+                    guidance += "- Enable Enhanced Monitoring and Performance Insights\n"
+                    guidance += "- Use Multi-AZ for high availability\n"
+                    guidance += "- Consider Read Replicas for read scaling\n"
+                    guidance += "- Use RDS Proxy for connection management\n"
+                    guidance += "- Enable automated backups with point-in-time recovery\n"
+            elif 'Azure' in cloud_provider:
+                guidance += "\n**Azure Database Specific:**\n"
+                guidance += "- Use Azure Database configuration settings (not direct SQL)\n"
+                guidance += "- Monitor via Azure Monitor and Query Performance Insight\n"
+                guidance += "- Use Azure SQL Database Hyperscale for large databases\n"
+                guidance += "- Consider Azure SQL Serverless for variable workloads\n"
+                guidance += "- Use connection pooling via application or built-in pooling\n"
+                guidance += "- Enable Intelligent Performance features\n"
+            elif 'GCP' in cloud_provider:
+                guidance += "\n**Google Cloud SQL Specific:**\n"
+                guidance += "- Use Cloud SQL configuration flags (not ALTER SYSTEM)\n"
+                guidance += "- Monitor via Cloud Monitoring and Query Insights\n"
+                guidance += "- Use Cloud SQL Proxy for secure connections\n"
+                guidance += "- Enable automatic storage increases\n"
+                guidance += "- Consider read replicas for scaling\n"
+                guidance += "- Use Cloud SQL Auth Proxy for IAM authentication\n"
+        elif deployment == 'On-Premises':
+            guidance += "\n**On-Premises Specific:**\n"
+            guidance += "- Direct database configuration access available\n"
+            guidance += "- Use native monitoring tools and custom solutions\n"
+            guidance += "- Implement manual backup and disaster recovery\n"
+            guidance += "- Consider hardware-specific optimizations\n"
+            guidance += "- Plan for manual scaling and capacity management\n"
+            guidance += "- Implement custom security and compliance measures\n"
+        
+        if environment == 'Production':
+            guidance += "\n**Production Environment Considerations:**\n"
+            guidance += "- Test all changes in staging first\n"
+            guidance += "- Use CONCURRENTLY for index creation\n"
+            guidance += "- Schedule maintenance during low-traffic periods\n"
+            guidance += "- Implement proper monitoring and alerting\n"
+            guidance += "- Ensure backup and recovery procedures are tested\n"
+        elif environment == 'Development':
+            guidance += "\n**Development Environment Notes:**\n"
+            guidance += "- Safe to experiment with configuration changes\n"
+            guidance += "- Use this environment to test optimization strategies\n"
+            guidance += "- Consider using smaller instance sizes for cost optimization\n"
+        
+        return guidance
 
 # Initialize DB-Buddy
 if 'db_buddy' not in st.session_state:
