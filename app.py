@@ -1478,6 +1478,14 @@ db_buddy = DBBuddy()
 def index():
     return render_template('index.html')
 
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
 @app.route('/start', methods=['POST'])
 def start_conversation():
     data = request.json
@@ -1554,6 +1562,19 @@ def get_conversation(session_id):
 def delete_conversation(session_id):
     db_buddy.memory.delete_conversation(session_id)
     return jsonify({'success': True})
+
+@app.route('/api/dashboard/metrics', methods=['GET'])
+def get_dashboard_metrics():
+    # Simulate real database metrics
+    metrics = {
+        'query_performance': 85,
+        'system_health': 92,
+        'active_sessions': 24,
+        'issues_count': 3,
+        'performance_trends': [75, 82, 78, 85, 88, 92, 85],
+        'query_distribution': [65, 25, 8, 2]
+    }
+    return jsonify(metrics)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

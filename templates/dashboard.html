@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DB-Buddy Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>🔧 DB-Buddy Performance Dashboard</h1>
+            <nav>
+                <a href="/" class="nav-link">← Back to Chat</a>
+                <button id="refreshBtn" class="refresh-btn">🔄 Refresh</button>
+            </nav>
+        </header>
+
+        <div class="metrics-grid">
+            <!-- Key Metrics Cards -->
+            <div class="metric-card">
+                <div class="metric-icon">⚡</div>
+                <div class="metric-content">
+                    <h3>Query Performance</h3>
+                    <div class="metric-value" id="queryPerf">85%</div>
+                    <div class="metric-trend up">↗ +12% this week</div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">🎯</div>
+                <div class="metric-content">
+                    <h3>System Health</h3>
+                    <div class="metric-value" id="systemHealth">92%</div>
+                    <div class="metric-trend up">↗ +5% improvement</div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">🔍</div>
+                <div class="metric-content">
+                    <h3>Active Sessions</h3>
+                    <div class="metric-value" id="activeSessions">24</div>
+                    <div class="metric-trend neutral">→ Normal range</div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">⚠️</div>
+                <div class="metric-content">
+                    <h3>Issues Detected</h3>
+                    <div class="metric-value" id="issuesCount">3</div>
+                    <div class="metric-trend down">↘ -2 resolved</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-section">
+            <div class="chart-container">
+                <h3>Performance Trends</h3>
+                <canvas id="performanceChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h3>Query Execution Time Distribution</h3>
+                <canvas id="queryTimeChart"></canvas>
+            </div>
+        </div>
+
+        <div class="analysis-section">
+            <div class="problem-areas">
+                <h3>🚨 Problem Areas</h3>
+                <div class="problem-list">
+                    <div class="problem-item high">
+                        <div class="severity-badge high">HIGH</div>
+                        <div class="problem-content">
+                            <h4>Missing Indexes on User Table</h4>
+                            <p>Query execution time: 6.2s → Recommended: CREATE INDEX idx_user_email</p>
+                        </div>
+                    </div>
+                    <div class="problem-item medium">
+                        <div class="severity-badge medium">MEDIUM</div>
+                        <div class="problem-content">
+                            <h4>High CPU Utilization</h4>
+                            <p>CPU usage at 85% → Recommended: Query optimization and connection pooling</p>
+                        </div>
+                    </div>
+                    <div class="problem-item low">
+                        <div class="severity-badge low">LOW</div>
+                        <div class="problem-content">
+                            <h4>Outdated Table Statistics</h4>
+                            <p>Last analyzed: 7 days ago → Recommended: ANALYZE command</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="recommendations">
+                <h3>💡 Quick Fixes</h3>
+                <div class="recommendation-list">
+                    <div class="recommendation-item">
+                        <div class="rec-priority">🔥 Immediate</div>
+                        <div class="rec-content">
+                            <h4>Create Missing Indexes</h4>
+                            <code>CREATE INDEX CONCURRENTLY idx_orders_date ON orders(created_date);</code>
+                        </div>
+                    </div>
+                    <div class="recommendation-item">
+                        <div class="rec-priority">⏰ This Week</div>
+                        <div class="rec-content">
+                            <h4>Update Statistics</h4>
+                            <code>ANALYZE orders, users, products;</code>
+                        </div>
+                    </div>
+                    <div class="recommendation-item">
+                        <div class="rec-priority">📅 This Month</div>
+                        <div class="rec-content">
+                            <h4>Implement Connection Pooling</h4>
+                            <code>Configure pgBouncer or application-level pooling</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="explain-plan-section">
+            <h3>🔍 Query Execution Plan Analyzer</h3>
+            <div class="explain-plan-container">
+                <textarea id="queryInput" placeholder="Paste your SQL query here for analysis..."></textarea>
+                <button id="analyzeBtn" class="analyze-btn">Analyze Query</button>
+                <div id="planResult" class="plan-result"></div>
+            </div>
+        </div>
+
+        <div class="troubleshooting-section">
+            <h3>🛠️ Troubleshooting Toolkit</h3>
+            <div class="toolkit-grid">
+                <div class="tool-card" onclick="runDiagnostic('connections')">
+                    <h4>🔗 Connection Health</h4>
+                    <p>Check active connections and pool status</p>
+                </div>
+                <div class="tool-card" onclick="runDiagnostic('performance')">
+                    <h4>⚡ Performance Monitor</h4>
+                    <p>Real-time performance metrics</p>
+                </div>
+                <div class="tool-card" onclick="runDiagnostic('locks')">
+                    <h4>🔒 Lock Analysis</h4>
+                    <p>Identify blocking queries</p>
+                </div>
+                <div class="tool-card" onclick="runDiagnostic('indexes')">
+                    <h4>📊 Index Usage</h4>
+                    <p>Analyze index effectiveness</p>
+                </div>
+            </div>
+            <div id="diagnosticResult" class="diagnostic-result"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>
