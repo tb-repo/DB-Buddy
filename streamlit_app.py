@@ -868,6 +868,32 @@ if not st.session_state.show_history:
                 <p style='color: #6b7280;'>Access control, encryption, auditing, compliance requirements, and data protection</p>
             </div>""", unsafe_allow_html=True)
         
+        # How to use section
+        st.markdown("""<div style='margin: 3rem 0 2rem 0;'>
+            <h2 style='text-align: center; font-size: 2rem; margin-bottom: 2rem; color: #374151;'>Getting Started</h2>
+        </div>""", unsafe_allow_html=True)
+        
+        with st.expander("📋 How to Use DB-Buddy - Quick Guide", expanded=False):
+            st.markdown("""
+            **🚀 Quick Start Steps:**
+            
+            1. **Select Service**: Choose your database assistance type from the sidebar (Troubleshooting, Query Optimization, Performance, etc.)
+            
+            2. **Configure System**: Use the "Quick Setup" in the sidebar to specify your database environment (AWS, Azure, PostgreSQL, etc.)
+            
+            3. **Start Conversation**: Click "New Chat" and describe your specific database challenge
+            
+            4. **Share Details**: Paste SQL queries, error messages, execution plans, or describe your requirements
+            
+            5. **Get Solutions**: Receive tailored recommendations with specific commands and implementation steps
+            
+            **💡 Pro Tips:**
+            - Upload screenshots of error messages or execution plans for faster analysis
+            - Be specific about your database system and environment for targeted advice
+            - Use the "Insert Selections" button to quickly add your system configuration to the chat
+            - Generate PDF reports to share recommendations with your team
+            """)
+        
 
 
 # Chat input and file upload (only show when conversation is active)
@@ -990,12 +1016,3 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
                 st.markdown(response)
                 st.session_state.messages.append({"role": "assistant", "content": response})
 
-# Instructions
-with st.expander("How to use DB-Buddy"):
-    st.markdown("""
-    1. **Select Service**: Choose your database assistance type from the sidebar
-    2. **Quick Setup**: Use the dropdowns to specify your database environment
-    3. **Insert Selections**: Click to add your configuration to the chat
-    4. **Describe Issue**: Type your specific database question or problem
-    5. **Get Recommendations**: Receive tailored advice and diagnostic queries
-    """)
