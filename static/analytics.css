@@ -1,0 +1,324 @@
+.analytics-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.analytics-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.analytics-header h1 {
+    color: #374151;
+    margin: 0;
+}
+
+.nav-link {
+    color: #3b82f6;
+    text-decoration: none;
+    margin-left: 20px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.nav-link:hover {
+    background-color: #eff6ff;
+}
+
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+    gap: 20px;
+}
+
+.analytics-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border: 1px solid #e5e7eb;
+}
+
+.analytics-card h2 {
+    color: #374151;
+    margin: 0 0 20px 0;
+    font-size: 1.25rem;
+}
+
+/* Query Plan Styles */
+.plan-controls {
+    margin-bottom: 15px;
+}
+
+.plan-controls button {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    margin-right: 10px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.plan-controls button:hover {
+    background: #2563eb;
+}
+
+#query-plan-viz {
+    min-height: 400px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 15px;
+    overflow: auto;
+}
+
+.plan-node {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 10px;
+    margin: 5px 0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.plan-node:hover {
+    background: #e2e8f0;
+    border-color: #3b82f6;
+}
+
+.plan-node.bottleneck {
+    background: #fef2f2;
+    border-color: #dc2626;
+}
+
+.plan-node.high-cost {
+    background: #fff7ed;
+    border-color: #ea580c;
+}
+
+/* Heatmap Styles */
+.heatmap-controls {
+    margin-bottom: 15px;
+}
+
+.heatmap-controls select {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+}
+
+#performance-heatmap {
+    min-height: 300px;
+}
+
+.heatmap-cell {
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.heatmap-cell:hover {
+    opacity: 0.8;
+}
+
+/* Risk Assessment Styles */
+.risk-meter {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.risk-level {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+    color: white;
+}
+
+.risk-level.low {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.risk-level.medium {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.risk-level.high {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+
+.risk-factors, .mitigation-strategies {
+    margin-bottom: 20px;
+}
+
+.risk-factors h3, .mitigation-strategies h3 {
+    color: #374151;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.risk-factors ul, .mitigation-strategies ul {
+    list-style: none;
+    padding: 0;
+}
+
+.risk-factors li, .mitigation-strategies li {
+    background: #f8fafc;
+    padding: 8px 12px;
+    margin: 5px 0;
+    border-radius: 6px;
+    border-left: 4px solid #3b82f6;
+}
+
+/* Workload Analysis Styles */
+.workload-charts {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.chart-container {
+    flex: 1;
+    max-width: 300px;
+}
+
+.workload-insights {
+    flex: 1;
+}
+
+.insight-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.insight-label {
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.insight-value {
+    font-weight: 600;
+    color: #374151;
+}
+
+/* Resource Optimization Styles */
+.optimization-recommendations {
+    display: grid;
+    gap: 20px;
+}
+
+.current-config, .recommended-config, .cost-impact {
+    background: #f8fafc;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.current-config h3, .recommended-config h3, .cost-impact h3 {
+    margin: 0 0 10px 0;
+    color: #374151;
+    font-size: 16px;
+}
+
+.impact-metrics {
+    display: flex;
+    gap: 20px;
+}
+
+.metric {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    background: white;
+    border-radius: 6px;
+}
+
+.metric-label {
+    display: block;
+    font-size: 14px;
+    color: #6b7280;
+    margin-bottom: 5px;
+}
+
+.metric-value {
+    display: block;
+    font-size: 18px;
+    font-weight: 600;
+    color: #10b981;
+}
+
+/* Pattern Analysis Styles */
+.pattern-analysis {
+    display: grid;
+    gap: 20px;
+}
+
+.patterns-section, .anti-patterns-section, .optimization-opportunities {
+    background: #f8fafc;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.patterns-section h3, .anti-patterns-section h3, .optimization-opportunities h3 {
+    margin: 0 0 10px 0;
+    color: #374151;
+    font-size: 16px;
+}
+
+.pattern-item {
+    background: white;
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 6px;
+    border-left: 4px solid #3b82f6;
+}
+
+.anti-pattern-item {
+    background: #fef2f2;
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 6px;
+    border-left: 4px solid #dc2626;
+}
+
+.pattern-frequency {
+    font-size: 12px;
+    color: #6b7280;
+    float: right;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .analytics-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .workload-charts {
+        flex-direction: column;
+    }
+    
+    .impact-metrics {
+        flex-direction: column;
+    }
+    
+    .analytics-header {
+        flex-direction: column;
+        gap: 15px;
+    }
+}

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DB-Buddy Analytics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='analytics.css') }}">
+</head>
+<body>
+    <div class="analytics-container">
+        <header class="analytics-header">
+            <h1>🔍 Advanced Database Analytics</h1>
+            <nav>
+                <a href="/" class="nav-link">← Back to Chat</a>
+                <a href="/dashboard" class="nav-link">Dashboard</a>
+            </nav>
+        </header>
+
+        <div class="analytics-grid">
+            <!-- Interactive Query Plan -->
+            <div class="analytics-card">
+                <h2>📊 Interactive Query Plan</h2>
+                <div id="query-plan-container">
+                    <div class="plan-controls">
+                        <button onclick="expandAll()">Expand All</button>
+                        <button onclick="collapseAll()">Collapse All</button>
+                        <button onclick="highlightBottlenecks()">Highlight Bottlenecks</button>
+                    </div>
+                    <div id="query-plan-viz"></div>
+                </div>
+            </div>
+
+            <!-- Performance Heatmap -->
+            <div class="analytics-card">
+                <h2>🔥 Performance Heatmap</h2>
+                <div class="heatmap-controls">
+                    <select id="heatmap-metric">
+                        <option value="frequency">Query Frequency</option>
+                        <option value="cost">Average Cost</option>
+                        <option value="duration">Execution Time</option>
+                    </select>
+                </div>
+                <div id="performance-heatmap"></div>
+            </div>
+
+            <!-- Risk Assessment -->
+            <div class="analytics-card">
+                <h2>⚠️ Risk Assessment</h2>
+                <div id="risk-assessment">
+                    <div class="risk-meter">
+                        <div class="risk-level" id="risk-level">
+                            <span class="risk-score">Medium</span>
+                        </div>
+                    </div>
+                    <div class="risk-factors">
+                        <h3>Risk Factors:</h3>
+                        <ul id="risk-factors-list"></ul>
+                    </div>
+                    <div class="mitigation-strategies">
+                        <h3>Mitigation Strategies:</h3>
+                        <ul id="mitigation-list"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workload Characterization -->
+            <div class="analytics-card">
+                <h2>📈 Workload Analysis</h2>
+                <div class="workload-charts">
+                    <div class="chart-container">
+                        <canvas id="workload-distribution"></canvas>
+                    </div>
+                    <div class="workload-insights">
+                        <div class="insight-item">
+                            <span class="insight-label">Workload Type:</span>
+                            <span class="insight-value" id="workload-type">Mixed</span>
+                        </div>
+                        <div class="insight-item">
+                            <span class="insight-label">Complexity:</span>
+                            <span class="insight-value" id="avg-complexity">Medium</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resource Optimization -->
+            <div class="analytics-card">
+                <h2>⚡ Resource Optimization</h2>
+                <div class="optimization-recommendations">
+                    <div class="current-config">
+                        <h3>Current Configuration:</h3>
+                        <div id="current-config-details"></div>
+                    </div>
+                    <div class="recommended-config">
+                        <h3>Recommended Changes:</h3>
+                        <div id="optimization-recommendations"></div>
+                    </div>
+                    <div class="cost-impact">
+                        <h3>Expected Impact:</h3>
+                        <div class="impact-metrics">
+                            <div class="metric">
+                                <span class="metric-label">Cost Savings:</span>
+                                <span class="metric-value" id="cost-savings">15-30%</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Performance Gain:</span>
+                                <span class="metric-value" id="performance-gain">20-40%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Query Pattern Analysis -->
+            <div class="analytics-card">
+                <h2>🔍 Query Pattern Analysis</h2>
+                <div class="pattern-analysis">
+                    <div class="patterns-section">
+                        <h3>Common Patterns:</h3>
+                        <div id="common-patterns"></div>
+                    </div>
+                    <div class="anti-patterns-section">
+                        <h3>Anti-Patterns Detected:</h3>
+                        <div id="anti-patterns"></div>
+                    </div>
+                    <div class="optimization-opportunities">
+                        <h3>Optimization Opportunities:</h3>
+                        <div id="pattern-optimizations"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='analytics.js') }}"></script>
+</body>
+</html>

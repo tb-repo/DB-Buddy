@@ -6,6 +6,7 @@ from datetime import datetime
 from memory import ConversationMemory
 from pdf_generator import PDFReportGenerator
 from image_processor import ImageProcessor
+from advanced_analytics import AdvancedAnalytics
 import base64
 
 # Load environment variables
@@ -21,6 +22,7 @@ class DBBuddy:
         self.use_ai = self.check_ollama_available()
         self.pdf_generator = PDFReportGenerator()
         self.image_processor = ImageProcessor()
+        self.analytics = AdvancedAnalytics()
         # Remove predefined question flows - use intelligent conversation instead
         self.service_descriptions = {
             'troubleshooting': 'database troubleshooting and error resolution',
@@ -208,7 +210,7 @@ FROM pg_tables WHERE tablename LIKE '%examiner%' OR tablename LIKE '%block%';
         if asking_about_plan:
             response += f"\n\n📊 **Yes, please share the execution plan!**\n\nRun this command and share the output:\n```sql\nEXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) \n{sql_query};\n```\n\nThis will help me identify specific bottlenecks and provide targeted index recommendations."
         else:
-            response += f"\n\n📊 **Next Steps:**\n1. Run the EXPLAIN ANALYZE command above to get execution plan\n2. Check current indexes on the tables/views\n3. Review the underlying view definitions\n4. Implement the suggested indexes\n\n**Expected improvements**: Proper indexing should reduce query time and resource consumption significantly."
+            response += f"\n\n📊 **Next Steps:**\n1. Run the EXPLAIN ANALYZE command above to get execution plan\n2. Check current indexes on the tables/views\n3. Review the underlying view definitions\n4. Implement the suggested indexes\n\n**Expected improvements**: Proper indexing should reduce query time and resource consumption significantly.\n\n🔍 **[View Advanced Analytics](/analytics)** - Interactive query plan visualization and performance analysis"
         
         return response
 
@@ -1482,10 +1484,6 @@ def index():
 def dashboard():
     return render_template('dashboard.html')
 
-@app.route('/dashboard')
-def dashboard():
-    return render_template('dashboard.html')
-
 @app.route('/start', methods=['POST'])
 def start_conversation():
     data = request.json
@@ -1562,6 +1560,49 @@ def get_conversation(session_id):
 def delete_conversation(session_id):
     db_buddy.memory.delete_conversation(session_id)
     return jsonify({'success': True})
+
+@app.route('/analytics')
+def analytics_dashboard():
+    return render_template('analytics.html')
+
+@app.route('/api/analytics/data', methods=['GET'])
+def get_analytics_data():
+    # Get sample queries for analysis
+    sample_queries = [
+        "SELECT * FROM customer_table WHERE created_date > '2024-01-01'",
+        "SELECT c.name, o.total FROM customer c JOIN orders o ON c.id = o.customer_id",
+        "UPDATE customer_table SET status = 'active' WHERE last_login > NOW() - INTERVAL '30 days'"
+    ]
+    
+    sample_plan = """Hash Join  (cost=1250.45..1890.23 rows=15000 width=64) (actual time=45.234..67.891 rows=14523 loops=1)
+  Hash Cond: (c.id = o.customer_id)
+  ->  Seq Scan on customer_table c  (cost=0.00..890.12 rows=50000 width=32) (actual time=0.123..120.456 rows=48932 loops=1)
+  ->  Hash  (cost=234.56..234.56 rows=12000 width=32) (actual time=15.234..15.234 rows=11876 loops=1)
+        ->  Index Scan using idx_customer_id on orders o  (cost=0.43..234.56 rows=12000 width=32) (actual time=0.045..8.234 rows=11876 loops=1)
+Execution Time: 89.456 ms"""
+    
+    user_selections = {
+        'deployment': 'Cloud',
+        'cloud_provider': 'AWS',
+        'database': 'Amazon Aurora PostgreSQL',
+        'environment': 'Production'
+    }
+    
+    analytics_data = {
+        'queryPlan': db_buddy.analytics.analyze_query_plan_interactive(sample_plan, user_selections),
+        'heatmap': db_buddy.analytics.generate_performance_heatmap(sample_queries, user_selections),
+        'riskAssessment': db_buddy.analytics.assess_change_risk([
+            'CREATE INDEX CONCURRENTLY idx_customer_date ON customer_table(created_date)',
+            'UPDATE STATISTICS customer_table'
+        ], user_selections),
+        'workloadAnalysis': db_buddy.analytics.characterize_workload(sample_queries, user_selections),
+        'resourceOptimization': db_buddy.analytics.optimize_resource_utilization(
+            {'workload_type': 'read_heavy'}, user_selections
+        ),
+        'patternAnalysis': db_buddy.analytics.analyze_query_patterns(sample_queries)
+    }
+    
+    return jsonify(analytics_data)
 
 @app.route('/api/dashboard/metrics', methods=['GET'])
 def get_dashboard_metrics():
