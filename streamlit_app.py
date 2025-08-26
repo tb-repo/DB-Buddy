@@ -725,7 +725,8 @@ if not st.session_state.show_history:
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("""<div style='background: #f8fafc; padding: 2rem; border-radius: 15px; margin-bottom: 1rem;'>
+            st.markdown("""
+            <div style='background: #f8fafc; padding: 2rem; border-radius: 15px; margin-bottom: 1rem;'>
                 <div style='display: flex; align-items: center; margin-bottom: 1rem;'>
                     <span style='color: #10b981; font-size: 1.5rem; margin-right: 1rem;'>✓</span>
                     <h4 style='margin: 0; color: #374151;'>Reduce DBA Workload</h4>
@@ -747,10 +748,12 @@ if not st.session_state.show_history:
                     <h4 style='margin: 0; color: #374151;'>Optimize Performance</h4>
                 </div>
                 <p style='margin: 0; color: #6b7280;'>Identify bottlenecks and get specific index recommendations with expected improvements</p>
-            </div>""", unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
         
         with col2:
-            st.markdown("""<div style='background: #f8fafc; padding: 2rem; border-radius: 15px; margin-bottom: 1rem;'>
+            st.markdown("""
+            <div style='background: #f8fafc; padding: 2rem; border-radius: 15px; margin-bottom: 1rem;'>
                 <div style='display: flex; align-items: center; margin-bottom: 1rem;'>
                     <span style='color: #10b981; font-size: 1.5rem; margin-right: 1rem;'>✓</span>
                     <h4 style='margin: 0; color: #374151;'>Save Development Time</h4>
@@ -772,7 +775,8 @@ if not st.session_state.show_history:
                     <h4 style='margin: 0; color: #374151;'>Cost Optimization</h4>
                 </div>
                 <p style='margin: 0; color: #6b7280;'>Right-size your infrastructure and optimize cloud database costs</p>
-            </div>""", unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
         
         # How It Works Section
         st.markdown("""<div style='margin: 4rem 0 2rem 0;'>
