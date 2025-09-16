@@ -8,6 +8,7 @@ from pdf_generator import PDFReportGenerator
 from image_processor import ImageProcessor
 from advanced_analytics import AdvancedAnalytics
 from intelligent_enhancements import IntelligentEnhancements
+from nl_to_sql import AskYourDatabaseTool
 import base64
 
 # Load environment variables
@@ -25,6 +26,7 @@ class DBBuddy:
         self.image_processor = ImageProcessor()
         self.analytics = AdvancedAnalytics()
         self.intelligence = IntelligentEnhancements()
+        self.nl_sql_tool = AskYourDatabaseTool()
         # Remove predefined question flows - use intelligent conversation instead
         self.service_descriptions = {
             'troubleshooting': 'database troubleshooting and error resolution',
@@ -89,6 +91,13 @@ class DBBuddy:
         """Analyze any SQL query provided by user"""
         input_lower = user_input.lower()
         lines = user_input.split('\n')
+        
+        # Check for natural language SQL requests
+        nl_indicators = ['generate sql', 'create query', 'write sql', 'find all', 'show me', 'get data', 'how many']
+        is_nl_query = any(indicator in input_lower for indicator in nl_indicators)
+        
+        if is_nl_query:
+            return self.get_natural_language_sql_response(user_input, user_selections)
         
         # Check if this is an execution plan analysis request
         if 'query plan' in input_lower or 'execution time:' in input_lower:
@@ -1768,7 +1777,7 @@ Provide expert recommendations tailored to their needs and expertise level."""
 • Include your database system and environment details
 • Describe when the issue started and any recent changes
 
-{'I'll provide step-by-step solutions with detailed explanations.' if expertise == 'beginner' else 'I can provide advanced diagnostic commands and optimization strategies.' if expertise == 'expert' else 'I'll give you practical solutions with technical details.'}""",
+{('I\'ll provide step-by-step solutions with detailed explanations.' if expertise == 'beginner' else 'I can provide advanced diagnostic commands and optimization strategies.' if expertise == 'expert' else 'I\'ll give you practical solutions with technical details.')}""",
             
             'query': f"""🔍 **SQL Query Optimization Expert**
 
@@ -1779,7 +1788,7 @@ I specialize in making queries faster and more efficient.
 • Describe the performance issue (slow execution, timeouts, etc.)
 • Include table sizes and current execution times if available
 
-{'I'll explain optimization concepts clearly with examples.' if expertise == 'beginner' else 'I can provide advanced query tuning and execution plan analysis.' if expertise == 'expert' else 'I'll give you practical optimization techniques.'}""",
+{('I\'ll explain optimization concepts clearly with examples.' if expertise == 'beginner' else 'I can provide advanced query tuning and execution plan analysis.' if expertise == 'expert' else 'I\'ll give you practical optimization techniques.')}""",
             
             'performance': f"""📊 **Database Performance Specialist**
 
@@ -1790,7 +1799,7 @@ I'll help identify and resolve performance bottlenecks.
 • Share any metrics or monitoring data you have
 • Include your database system and infrastructure details
 
-{'I'll provide clear explanations and step-by-step guidance.' if expertise == 'beginner' else 'I can dive deep into performance tuning and advanced optimization.' if expertise == 'expert' else 'I'll give you practical performance improvements.'}""",
+{('I\'ll provide clear explanations and step-by-step guidance.' if expertise == 'beginner' else 'I can dive deep into performance tuning and advanced optimization.' if expertise == 'expert' else 'I\'ll give you practical performance improvements.')}""",
             
             'architecture': f"""🏗️ **Database Architecture Consultant**
 
@@ -1801,7 +1810,7 @@ I'll help design scalable, robust database architectures.
 • Share data volume and user requirements
 • Include performance and availability needs
 
-{'I'll explain architectural concepts with clear examples.' if expertise == 'beginner' else 'I can provide advanced architecture patterns and best practices.' if expertise == 'expert' else 'I'll give you practical architecture recommendations.'}""",
+{('I\'ll explain architectural concepts with clear examples.' if expertise == 'beginner' else 'I can provide advanced architecture patterns and best practices.' if expertise == 'expert' else 'I\'ll give you practical architecture recommendations.')}""",
             
             'capacity': f"""📏 **Database Capacity Planning Expert**
 
@@ -1812,7 +1821,7 @@ I'll help you size your database infrastructure correctly.
 • Include user count and usage patterns
 • Describe performance requirements and growth projections
 
-{'I'll explain sizing concepts and provide clear recommendations.' if expertise == 'beginner' else 'I can provide detailed capacity modeling and optimization strategies.' if expertise == 'expert' else 'I'll give you practical sizing recommendations.'}""",
+{('I\'ll explain sizing concepts and provide clear recommendations.' if expertise == 'beginner' else 'I can provide detailed capacity modeling and optimization strategies.' if expertise == 'expert' else 'I\'ll give you practical sizing recommendations.')}""",
             
             'security': f"""🔐 **Database Security Specialist**
 
@@ -1823,7 +1832,7 @@ I'll help implement comprehensive database security.
 • Share current security concerns or requirements
 • Include user access patterns and authentication needs
 
-{'I'll explain security concepts clearly with implementation guides.' if expertise == 'beginner' else 'I can provide advanced security architectures and compliance strategies.' if expertise == 'expert' else 'I'll give you practical security implementations.'}"""
+{('I\'ll explain security concepts clearly with implementation guides.' if expertise == 'beginner' else 'I can provide advanced security architectures and compliance strategies.' if expertise == 'expert' else 'I\'ll give you practical security implementations.')}"""
         }
         
         return fallback_responses.get(service_type, "I'm here to help with your database needs. Please share more details about your specific situation.")
@@ -2131,6 +2140,11 @@ Share specific queries, execution times, or performance metrics for detailed ana
         
         return f"Security recommendations for {db_system}:\n" + "\n".join(recommendations) + f"\n\nCompliance: {compliance}\nUser management: {user_mgmt}\n\nBest practices: Regular security audits, automated backup testing, patch management, and incident response planning.\nRecommendation: Work with security team for compliance requirements."
 
+# Add methods to DBBuddy class
+DBBuddy.get_natural_language_sql_response = get_natural_language_sql_response
+DBBuddy.get_ai_client = get_ai_client
+DBBuddy.contains_sql_query = contains_sql_query
+
 db_buddy = DBBuddy()
 
 @app.route('/')
@@ -2273,6 +2287,198 @@ def get_dashboard_metrics():
         'query_distribution': [65, 25, 8, 2]
     }
     return jsonify(metrics)
+
+def get_natural_language_sql_response(self, user_input, user_selections):
+    """Handle natural language to SQL conversion"""
+    try:
+        # Initialize AI client for the NL-to-SQL tool
+        self.nl_sql_tool.ai_client = self.get_ai_client()
+        
+        # For demo, use sample database config
+        sample_db_config = {
+            'type': 'postgresql',
+            'host': 'localhost',
+            'database': 'sample_db',
+            'user': 'demo_user',
+            'password': 'demo_pass'
+        }
+        
+        result = self.nl_sql_tool.process_natural_query(user_input, sample_db_config)
+        
+        if 'error' in result:
+            return f"""🤖 **Natural Language SQL Generator**
+
+❌ **Error**: {result['error']}
+
+**To use this feature:**
+1. Connect your database using the configuration panel
+2. Describe what data you want in plain English
+3. I'll generate the SQL query and explain the results
+
+**Example queries:**
+• "Show me all customers who placed orders last month"
+• "Find the top 10 products by sales revenue"
+• "Get the average order value by customer segment"
+
+💡 *This feature requires database connection details for schema analysis and query execution.*"""
+        
+        response = f"""🤖 **Natural Language SQL Generator**
+
+✅ **Your Request**: {result['natural_query']}
+
+**Generated SQL Query:**
+```sql
+{result['generated_sql']}
+```
+
+**Confidence Level**: {result['confidence']:.1%}
+
+**Query Explanation**: {result['explanation']}
+
+**Schema Analysis**: Used {result['schema_used']} tables from your database
+
+"""
+        
+        if result['execution_result'].get('success'):
+            if result['execution_result'].get('data'):
+                response += f"**Results**: Found {result['execution_result']['row_count']} rows\n"
+                response += f"**Columns**: {', '.join(result['execution_result']['columns'])}\n\n"
+            else:
+                response += f"**Result**: {result['execution_result'].get('message', 'Query executed successfully')}\n\n"
+        else:
+            response += f"**Execution Error**: {result['execution_result'].get('error', 'Unknown error')}\n\n"
+        
+        response += """**🔧 Features:**
+• **Auto Schema Discovery**: Automatically understands your database structure
+• **Smart Query Generation**: Converts natural language to optimized SQL
+• **Safe Execution**: Read-only queries with built-in security checks
+• **Result Explanation**: Plain English explanation of query results
+
+**💡 Next Steps:**
+1. Connect your actual database for real query execution
+2. Try more complex queries with joins and aggregations
+3. Use the generated SQL as a starting point for optimization"""
+        
+        return response
+        
+    except Exception as e:
+        return f"""🤖 **Natural Language SQL Generator**
+
+❌ **Error**: {str(e)}
+
+**This feature provides:**
+• **Plain English to SQL**: Describe what you want, get the SQL query
+• **Schema Understanding**: Automatically analyzes your database structure
+• **Query Execution**: Safely runs queries and explains results
+• **Security**: Read-only access with built-in safety checks
+
+**Example Usage:**
+"Find all customers who haven't placed an order in the last 30 days"
+→ Generates optimized SQL with proper JOINs and date filtering
+
+💡 *Connect your database to start using this feature.*"""
+
+def get_ai_client(self):
+    """Get appropriate AI client for NL-to-SQL processing"""
+    if self.use_ai == 'groq':
+        # Return a mock client that works with our existing Groq setup
+        class MockGroqClient:
+            def __init__(self):
+                pass
+                
+            @property
+            def messages(self):
+                return self
+                
+            def create(self, model, max_tokens, messages):
+                # Use existing Groq response method
+                import os
+                import requests
+                
+                try:
+                    headers = {
+                        'Authorization': f'Bearer {os.getenv("GROQ_API_KEY")}',
+                        'Content-Type': 'application/json'
+                    }
+                    
+                    payload = {
+                        'model': 'llama3-8b-8192',
+                        'messages': messages,
+                        'temperature': 0.1,
+                        'max_tokens': max_tokens
+                    }
+                    
+                    response = requests.post(
+                        'https://api.groq.com/openai/v1/chat/completions',
+                        headers=headers,
+                        json=payload,
+                        timeout=30
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        # Mock the expected response structure
+                        class MockResponse:
+                            def __init__(self, content):
+                                self.content = [type('obj', (object,), {'text': content})()]
+                        
+                        return MockResponse(result['choices'][0]['message']['content'].strip())
+                except:
+                    pass
+                
+                return None
+        
+        return MockGroqClient()
+    
+    return None
+
+def contains_sql_query(self, text):
+    """Check if text contains SQL query"""
+    sql_keywords = ['select', 'insert', 'update', 'delete', 'create', 'alter', 'drop']
+    return any(keyword in text.lower() for keyword in sql_keywords)
+
+@app.route('/api/nl-sql', methods=['POST'])
+def natural_language_sql():
+    try:
+        data = request.json
+        query = data.get('query')
+        db_config = data.get('db_config', {})
+        
+        if not query:
+            return jsonify({'error': 'No query provided'}), 400
+        
+        # Initialize AI client for the NL-to-SQL tool
+        db_buddy.nl_sql_tool.ai_client = db_buddy.get_ai_client()
+        
+        # Process natural language query
+        result = db_buddy.nl_sql_tool.process_natural_query(query, db_config)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': f'Natural language SQL processing failed: {str(e)}'}), 500
+
+@app.route('/api/schema', methods=['POST'])
+def analyze_schema():
+    try:
+        data = request.json
+        db_config = data.get('db_config')
+        
+        if not db_config:
+            return jsonify({'error': 'Database configuration required'}), 400
+        
+        # Connect and analyze schema
+        conn_key = db_buddy.nl_sql_tool.converter.connect_database(db_config)
+        
+        if 'failed' in conn_key.lower():
+            return jsonify({'error': conn_key}), 400
+        
+        schema = db_buddy.nl_sql_tool.converter.analyze_schema(conn_key)
+        
+        return jsonify(schema)
+        
+    except Exception as e:
+        return jsonify({'error': f'Schema analysis failed: {str(e)}'}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

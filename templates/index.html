@@ -326,6 +326,37 @@
                 </div>
             </div>
             
+            <!-- Natural Language SQL Panel -->
+            <div id="nlSqlPanel" class="nl-sql-panel" style="display: none;">
+                <div class="nl-sql-header">
+                    <h4><i class="fas fa-robot"></i> Natural Language to SQL</h4>
+                    <button onclick="toggleNLSQL()" class="close-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="nl-sql-form">
+                    <textarea id="nlQuery" placeholder="Describe what data you want in plain English...\nExample: 'Show me all customers who placed orders last month'" rows="3"></textarea>
+                    <div class="db-config">
+                        <select id="dbType">
+                            <option value="postgresql">PostgreSQL</option>
+                            <option value="mysql">MySQL</option>
+                            <option value="sqlite">SQLite</option>
+                        </select>
+                        <input type="text" id="dbHost" placeholder="Host (optional)" />
+                        <input type="text" id="dbName" placeholder="Database Name" />
+                    </div>
+                    <div class="nl-sql-buttons">
+                        <button onclick="generateSQL()" class="btn btn-primary">
+                            <i class="fas fa-magic"></i> Generate SQL
+                        </button>
+                        <button onclick="executeSQL()" class="btn btn-success">
+                            <i class="fas fa-play"></i> Execute Query
+                        </button>
+                    </div>
+                </div>
+                <div id="sqlResult" class="sql-result"></div>
+            </div>
+            
             <div class="chat-input-container">
                 <div class="input-wrapper">
                     <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
@@ -336,17 +367,133 @@
                     <button onclick="generateReport()" class="report-btn" title="Generate PDF Report">
                         <i class="fas fa-file-pdf"></i>
                     </button>
+                    <button onclick="toggleNLSQL()" class="nl-sql-btn" title="Natural Language SQL">
+                        <i class="fas fa-robot"></i>
+                    </button>
                     <button onclick="sendAnswer()" id="sendBtn" class="send-btn">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
                 <div class="input-help">
-                    <small><i class="fas fa-info-circle"></i> Use quick selectors above, upload screenshots, or type details directly</small>
+                    <small><i class="fas fa-info-circle"></i> Use quick selectors above, upload screenshots, or try Natural Language SQL</small>
                 </div>
             </div>
         </div>
     </div>
     
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // Natural Language SQL functionality
+        function toggleNLSQL() {
+            const panel = document.getElementById('nlSqlPanel');
+            const isVisible = panel.style.display !== 'none';
+            panel.style.display = isVisible ? 'none' : 'block';
+            
+            if (!isVisible) {
+                document.getElementById('nlQuery').focus();
+            }
+        }
+        
+        async function generateSQL() {
+            const query = document.getElementById('nlQuery').value;
+            if (!query.trim()) {
+                alert('Please enter a query description');
+                return;
+            }
+            
+            const dbConfig = {
+                type: document.getElementById('dbType').value,
+                host: document.getElementById('dbHost').value || 'localhost',
+                database: document.getElementById('dbName').value || 'demo_db'
+            };
+            
+            const resultDiv = document.getElementById('sqlResult');
+            resultDiv.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Generating SQL...</div>';
+            
+            try {
+                const response = await fetch('/api/nl-sql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, db_config: dbConfig })
+                });
+                
+                const result = await response.json();
+                displaySQLResult(result);
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error"><i class="fas fa-exclamation-triangle"></i> Error: ${error.message}</div>`;
+            }
+        }
+        
+        function displaySQLResult(result) {
+            const resultDiv = document.getElementById('sqlResult');
+            
+            if (result.error) {
+                resultDiv.innerHTML = `<div class="error"><i class="fas fa-exclamation-triangle"></i> ${result.error}</div>`;
+                return;
+            }
+            
+            let html = `
+                <div class="sql-success">
+                    <h5><i class="fas fa-check-circle"></i> Generated SQL Query:</h5>
+                    <div class="sql-code">
+                        <pre><code>${result.generated_sql}</code></pre>
+                        <button onclick="copySQLToClipboard('${result.generated_sql.replace(/'/g, "\\'")}')") class="copy-btn" title="Copy SQL">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="sql-meta">
+                        <span class="confidence"><i class="fas fa-chart-bar"></i> Confidence: ${(result.confidence * 100).toFixed(1)}%</span>
+                        <span class="schema-info"><i class="fas fa-database"></i> Tables: ${result.schema_used}</span>
+                    </div>
+                    <div class="explanation">
+                        <h6><i class="fas fa-lightbulb"></i> Explanation:</h6>
+                        <p>${result.explanation}</p>
+                    </div>
+                </div>
+            `;
+            
+            if (result.execution_result && result.execution_result.success) {
+                html += `
+                    <div class="execution-result">
+                        <h5><i class="fas fa-play-circle"></i> Execution Result:</h5>
+                        <div class="result-stats">
+                            <span><i class="fas fa-list-ol"></i> Rows: ${result.execution_result.row_count}</span>
+                            <span><i class="fas fa-columns"></i> Columns: ${result.execution_result.columns ? result.execution_result.columns.join(', ') : 'N/A'}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            resultDiv.innerHTML = html;
+        }
+        
+        function copySQLToClipboard(sql) {
+            navigator.clipboard.writeText(sql).then(() => {
+                // Show temporary success message
+                const btn = event.target.closest('.copy-btn');
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                btn.style.color = '#28a745';
+                setTimeout(() => {
+                    btn.innerHTML = originalHTML;
+                    btn.style.color = '';
+                }, 2000);
+            });
+        }
+        
+        async function executeSQL() {
+            const query = document.getElementById('nlQuery').value;
+            if (!query.trim()) {
+                alert('Please generate SQL first');
+                return;
+            }
+            
+            // For demo purposes - in production this would execute the actual SQL
+            const resultDiv = document.getElementById('sqlResult');
+            const currentContent = resultDiv.innerHTML;
+            
+            resultDiv.innerHTML = currentContent + '<div class="demo-notice"><i class="fas fa-info-circle"></i> Demo Mode: SQL execution requires database connection. Use the generated SQL in your database client.</div>';
+        }
+    </script>
 </body>
 </html>

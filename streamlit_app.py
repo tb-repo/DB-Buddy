@@ -1,7 +1,14 @@
+import streamlit as st
+
+# Set page config first - must be at the very top
+st.set_page_config(
+    page_title="DB-Buddy - AI Database Assistant",
+    page_icon="🗄️",
+    layout="wide"
+)
+
 import warnings
 warnings.filterwarnings('ignore', category=SyntaxWarning)
-
-import streamlit as st
 import requests
 import json
 from datetime import datetime
@@ -764,13 +771,6 @@ def get_image_processor():
 memory = get_memory()
 pdf_generator = get_pdf_generator()
 image_processor = get_image_processor()
-
-# Set page config
-st.set_page_config(
-    page_title="DB-Buddy - AI Database Assistant",
-    page_icon="🗄️",
-    layout="wide"
-)
 
 # Enhanced session state initialization with context awareness
 if 'session_id' not in st.session_state:
