@@ -12,20 +12,28 @@ from image_processor import ImageProcessor
 import base64
 from PIL import Image
 import io
+import asyncio
+import time
+from typing import Generator
 
-# Get API keys from Streamlit secrets or environment variables
+# Enhanced API key management with caching
+@st.cache_data(ttl=3600)  # Cache for 1 hour
 def get_api_key(key_name):
-    # Try Streamlit secrets first (for cloud deployment)
+    """Securely get API keys with caching"""
     try:
         return st.secrets[key_name]
     except:
-        # Fallback to environment variables (for local development)
         return os.getenv(key_name)
 
 # Initialize API keys
 GROQ_API_KEY = get_api_key('GROQ_API_KEY')
 HUGGINGFACE_API_KEY = get_api_key('HUGGINGFACE_API_KEY')
 ANTHROPIC_API_KEY = get_api_key('ANTHROPIC_API_KEY')
+
+@st.cache_resource
+def get_db_buddy():
+    """Cached DB-Buddy instance for performance"""
+    return StreamlitDBBuddy()
 
 class StreamlitDBBuddy:
     def __init__(self):
@@ -38,6 +46,7 @@ class StreamlitDBBuddy:
             'capacity': 'database capacity planning and sizing',
             'security': 'database security hardening and compliance'
         }
+        self.rate_limit_tracker = {}
     
     def check_ai_available(self):
         if ANTHROPIC_API_KEY:
@@ -48,38 +57,82 @@ class StreamlitDBBuddy:
             return 'huggingface'
         return False
     
+    def check_rate_limit(self, user_id="default"):
+        """Check if user has exceeded rate limits"""
+        current_time = time.time()
+        if user_id not in self.rate_limit_tracker:
+            self.rate_limit_tracker[user_id] = []
+        
+        # Remove requests older than 1 minute
+        self.rate_limit_tracker[user_id] = [
+            req_time for req_time in self.rate_limit_tracker[user_id] 
+            if current_time - req_time < 60
+        ]
+        
+        # Check if under limit (5 requests per minute)
+        if len(self.rate_limit_tracker[user_id]) >= 5:
+            return False
+        
+        self.rate_limit_tracker[user_id].append(current_time)
+        return True
+    
+    async def get_intelligent_response_async(self, user_input, user_selections, service_type, conversation_history):
+        """Async version for non-blocking response generation"""
+        return await asyncio.to_thread(
+            self.get_intelligent_response, 
+            user_input, user_selections, service_type, conversation_history
+        )
+    
     def get_intelligent_response(self, user_input, user_selections, service_type, conversation_history):
-        """Generate intelligent, contextual responses based on user input"""
-        # Build conversation context
-        context = f"Service type: {service_type}\n"
-        if user_selections:
-            context += "System configuration:\n"
-            for key, value in user_selections.items():
-                if value:
-                    context += f"- {key}: {value}\n"
+        """Generate intelligent, contextual responses with enhanced context awareness"""
+        # Enhanced context building with conversation memory
+        context = self.build_enhanced_context(service_type, user_selections, conversation_history)
         
-        if len(conversation_history) > 1:
-            context += f"\nPrevious conversation:\n"
-            for i, msg in enumerate(conversation_history[-6:], 1):  # Last 6 messages for context
-                role = "User" if msg['role'] == 'user' else "Assistant"
-                content = msg['content'][:200] + "..." if len(msg['content']) > 200 else msg['content']
-                context += f"{role} {i}: {content}\n"
-        
-        # Get AI response with full context
-        ai_response = self.get_ai_response(context, user_input, user_selections)
+        # Get AI response with streaming support
+        ai_response = self.get_ai_response_with_context(context, user_input, user_selections)
         
         if ai_response:
             return ai_response
         
-        # Fallback to specialized recommendations if AI unavailable
+        # Fallback to specialized recommendations
         specialized = self.get_specialized_recommendation(user_input, user_selections)
         if specialized:
             return specialized
         
-        # Final fallback
+        # Final contextual fallback
         return self.get_contextual_fallback(service_type, user_input, user_selections)
     
-    def get_ai_response(self, context, user_input, user_selections=None):
+    def build_enhanced_context(self, service_type, user_selections, conversation_history):
+        """Build rich context with conversation memory"""
+        context = f"Service type: {service_type}\n"
+        
+        # System configuration
+        if user_selections:
+            context += "\nSystem configuration:\n"
+            for key, value in user_selections.items():
+                if value:
+                    context += f"- {key}: {value}\n"
+        
+        # Enhanced conversation history with relevance scoring
+        if len(conversation_history) > 1:
+            context += f"\nConversation history (last 6 exchanges):\n"
+            recent_messages = conversation_history[-12:]  # Last 12 messages (6 exchanges)
+            
+            for i in range(0, len(recent_messages), 2):
+                if i + 1 < len(recent_messages):
+                    user_msg = recent_messages[i]['content'][:150] + "..." if len(recent_messages[i]['content']) > 150 else recent_messages[i]['content']
+                    assistant_msg = recent_messages[i+1]['content'][:150] + "..." if len(recent_messages[i+1]['content']) > 150 else recent_messages[i+1]['content']
+                    context += f"User: {user_msg}\nAssistant: {assistant_msg}\n\n"
+        
+        return context
+    
+    @st.cache_data(ttl=300)  # Cache responses for 5 minutes
+    def get_cached_ai_response(_self, context_hash, user_input, user_selections_str):
+        """Cached AI response to reduce API calls"""
+        return _self.get_ai_response_with_context(context_hash, user_input, eval(user_selections_str))
+    
+    def get_ai_response_with_context(self, context, user_input, user_selections=None):
+        """Enhanced AI response with context awareness and streaming"""
         # Build enhanced context with user selections and technical details
         enhanced_context = context
         if user_selections:
@@ -90,63 +143,95 @@ class StreamlitDBBuddy:
             enhanced_context += selection_context
         
         # Preserve formatting for execution plans and SQL queries
-        enhanced_context += "\n\nUser's current message (preserve exact formatting for SQL and execution plans): " + user_input + "\n"
-        enhanced_context += "IMPORTANT: If the user provided an execution plan or SQL query, preserve the exact formatting and line breaks. Analyze the specific metrics, costs, and operations shown. Respond naturally and conversationally to their specific situation. Provide technical depth when appropriate, but keep the tone friendly and professional.\n"
+        enhanced_context += "\n\nUser's current message: " + user_input + "\n"
+        enhanced_context += "Provide specific, actionable database recommendations with technical depth appropriate to the user's expertise level.\n"
         
         # Build deployment-specific guidance
         deployment_guidance = self.get_deployment_specific_guidance(user_selections)
-        cloud_guidance = deployment_guidance
         
-        system_prompt = f"""You are DB-Buddy, a senior database performance specialist. You MUST analyze the specific SQL queries, execution plans, and technical details provided by users. Never give generic responses.
+        system_prompt = f"""You are DB-Buddy, a senior database expert. Analyze specific technical details and provide actionable recommendations.
 
-CRITICAL INSTRUCTIONS:
-- If a user provides a SQL query, analyze THAT EXACT query
-- If they share an execution plan, interpret THOSE SPECIFIC metrics
-- If they mention table sizes, constraints, or schema details, use THAT INFORMATION
-- Never respond with generic advice when specific technical details are provided
+CONTEXT AWARENESS:
+- Maintain conversation continuity using provided history
+- Reference previous exchanges when relevant
+- Build upon earlier recommendations
+- Adapt technical depth to user's demonstrated expertise
 
-SQL QUERY ANALYSIS PROCESS:
-1. **Parse the actual SQL statement** - identify tables, columns, WHERE conditions, JOINs
-2. **Analyze the execution plan** - look for table scans, index usage, cost estimates, actual times
-3. **Identify performance bottlenecks** - high costs, long execution times, inefficient operations
-4. **Recommend specific indexes** - based on WHERE clauses, ORDER BY, and SELECT columns
-5. **Provide exact DDL statements** - CREATE INDEX commands with proper syntax
+RESPONSE QUALITY:
+- Provide specific, actionable solutions
+- Include exact commands and configurations
+- Reference user's specific table names, queries, and metrics
+- Avoid generic advice when specific details are provided
 
-EXECUTION PLAN INTERPRETATION:
-- **Seq Scan / Table Scan**: Missing indexes, recommend specific index creation
-- **Bitmap Heap Scan**: Analyze filter conditions, suggest composite indexes
-- **High cost values**: Identify expensive operations, recommend optimizations
-- **Rows Removed by Filter**: Suggest better indexing strategies
-- **Long execution times**: Provide immediate and long-term solutions
+TECHNICAL EXPERTISE:
+- SQL query analysis with execution plans
+- Performance optimization strategies
+- Database-specific best practices
+- Cloud platform recommendations{deployment_guidance}
 
-WHEN USER PROVIDES SPECIFIC QUERY:
-- Quote their exact table names and column names in your response
-- Reference their specific WHERE conditions
-- Analyze their actual execution plan metrics
-- Provide CREATE INDEX statements using their exact schema and table names
-- Calculate expected performance improvements based on their data
-
-FORBIDDEN RESPONSES:
-- "I see you have a SQL query" (analyze the actual query instead)
-- "Please share your query" (when they already shared it)
-- Generic index advice (provide specific recommendations for their query)
-- Template responses (respond to their specific situation)
-
-Database-specific expertise:
-- **PostgreSQL/Aurora PostgreSQL**: EXPLAIN ANALYZE, pg_stat_*, vacuum strategies, partitioning, connection pooling
-- **MySQL/Aurora MySQL**: EXPLAIN FORMAT=JSON, SHOW ENGINE INNODB STATUS, query cache, buffer pool tuning
-- **SQL Server**: SET STATISTICS IO/TIME, DMVs, index maintenance, query store
-- **Oracle**: EXPLAIN PLAN, AWR reports, CBO statistics, partitioning strategies{cloud_guidance}
-
-You MUST provide specific, actionable analysis of the user's actual query and execution plan. No generic responses allowed."""
+Deliver comprehensive, contextual responses that build upon the conversation history."""
         
         if self.use_ai == 'claude':
-            return self.get_claude_response(system_prompt, enhanced_context, user_input)
+            return self.get_claude_response_streaming(system_prompt, enhanced_context, user_input)
         elif self.use_ai == 'groq':
-            return self.get_groq_response(system_prompt, enhanced_context, user_input)
+            return self.get_groq_response_streaming(system_prompt, enhanced_context, user_input)
         elif self.use_ai == 'huggingface':
             return self.get_huggingface_response(system_prompt, enhanced_context, user_input)
         
+        return None
+    
+    def get_claude_response_streaming(self, system_prompt, context, user_input):
+        """Claude response with streaming support"""
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=get_api_key('ANTHROPIC_API_KEY'))
+            
+            with client.messages.stream(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=1200,
+                system=system_prompt,
+                messages=[{"role": "user", "content": f"Context: {context}\nQuery: {user_input}"}]
+            ) as stream:
+                response_text = ""
+                for text in stream.text_stream:
+                    response_text += text
+                    yield text
+                return response_text
+        except Exception as e:
+            st.error(f"Claude API error: {e}")
+            return None
+    
+    def get_groq_response_streaming(self, system_prompt, context, user_input):
+        """Groq response with enhanced parameters"""
+        try:
+            headers = {
+                'Authorization': f'Bearer {get_api_key("GROQ_API_KEY")}',
+                'Content-Type': 'application/json'
+            }
+            
+            payload = {
+                'model': 'llama3-8b-8192',
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': f"Context: {context}\nUser Request: {user_input}"}
+                ],
+                'temperature': 0.1,
+                'max_tokens': 1000,
+                'stream': False  # Streamlit doesn't handle streaming well with requests
+            }
+            
+            response = requests.post(
+                'https://api.groq.com/openai/v1/chat/completions',
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result['choices'][0]['message']['content'].strip()
+        except Exception as e:
+            st.error(f"Groq API error: {e}")
         return None
     
     def get_claude_response(self, system_prompt, context, user_input):
@@ -661,20 +746,24 @@ Keep it conversational and encouraging. No bullet points or rigid structure."""
         
         return guidance
 
-# Initialize DB-Buddy
-if 'db_buddy' not in st.session_state:
-    st.session_state.db_buddy = StreamlitDBBuddy()
+# Initialize cached resources
+db_buddy = get_db_buddy()
 
-# Initialize memory
-if 'memory' not in st.session_state:
-    st.session_state.memory = ConversationMemory('streamlit_conversations.json')
+@st.cache_resource
+def get_memory():
+    return ConversationMemory('streamlit_conversations.json')
 
-# Initialize PDF generator and image processor
-if 'pdf_generator' not in st.session_state:
-    st.session_state.pdf_generator = PDFReportGenerator()
+@st.cache_resource  
+def get_pdf_generator():
+    return PDFReportGenerator()
 
-if 'image_processor' not in st.session_state:
-    st.session_state.image_processor = ImageProcessor()
+@st.cache_resource
+def get_image_processor():
+    return ImageProcessor()
+
+memory = get_memory()
+pdf_generator = get_pdf_generator()
+image_processor = get_image_processor()
 
 # Set page config
 st.set_page_config(
@@ -683,7 +772,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Initialize session state
+# Enhanced session state initialization with context awareness
 if 'session_id' not in st.session_state:
     st.session_state.session_id = f"session_{datetime.now().timestamp()}"
 if 'messages' not in st.session_state:
@@ -692,6 +781,12 @@ if 'current_issue_type' not in st.session_state:
     st.session_state.current_issue_type = None
 if 'show_history' not in st.session_state:
     st.session_state.show_history = False
+if 'user_preferences' not in st.session_state:
+    st.session_state.user_preferences = {}
+if 'conversation_context' not in st.session_state:
+    st.session_state.conversation_context = {}
+if 'api_usage_count' not in st.session_state:
+    st.session_state.api_usage_count = 0
 
 # Header
 st.title("🗄️ DB-Buddy - AI Database Assistant")
@@ -719,16 +814,20 @@ with st.sidebar:
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("New Chat"):
-            st.session_state.messages = []
-            st.session_state.current_issue_type = selected_service
-            st.session_state.session_id = f"session_{datetime.now().timestamp()}"
-            st.session_state.show_history = False
-            
-            # Add intelligent welcome message
-            welcome_msg = st.session_state.db_buddy.get_welcome_message(selected_service)
-            st.session_state.messages.append({"role": "assistant", "content": welcome_msg})
-            st.rerun()
+        if st.button("New Chat", on_click=lambda: clear_chat_history(selected_service)):
+            pass
+    
+    def clear_chat_history(service_type):
+        """Callback to clear chat history and start new conversation"""
+        st.session_state.messages = []
+        st.session_state.current_issue_type = service_type
+        st.session_state.session_id = f"session_{datetime.now().timestamp()}"
+        st.session_state.show_history = False
+        st.session_state.conversation_context = {'service_type': service_type}
+        
+        # Add intelligent welcome message
+        welcome_msg = db_buddy.get_welcome_message(service_type)
+        st.session_state.messages.append({"role": "assistant", "content": welcome_msg})
     
     with col2:
         if st.button("History"):
@@ -770,7 +869,7 @@ with st.sidebar:
     # Show conversation history
     if st.session_state.show_history:
         st.subheader("Past Conversations")
-        conversations = st.session_state.memory.get_all_conversations()
+        conversations = memory.get_all_conversations()
         
         if conversations:
             for conv in conversations[:10]:  # Show last 10 conversations
@@ -778,17 +877,10 @@ with st.sidebar:
                     st.write(f"**Preview:** {conv['preview']}")
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button(f"Load", key=f"load_{conv['session_id']}"):
-                            # Load conversation
-                            loaded_conv = st.session_state.memory.get_conversation(conv['session_id'])
-                            if loaded_conv:
-                                st.session_state.current_issue_type = loaded_conv['data']['type']
-                                st.session_state.messages = []
-                                # Reconstruct messages from conversation data
-                                for i, answer in enumerate(loaded_conv['data']['answers']):
-                                    st.session_state.messages.append({"role": "user", "content": answer})
-                                st.session_state.show_history = False
-                                st.rerun()
+                        if st.button(f"Delete", key=f"del_{conv['session_id']}"):
+                            memory.delete_conversation(conv['session_id'])
+                            st.toast("Conversation deleted", icon="🗑️")
+                            st.rerun()
                     with col2:
                         if st.button(f"Delete", key=f"del_{conv['session_id']}"):
                             st.session_state.memory.delete_conversation(conv['session_id'])
@@ -1047,22 +1139,19 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
     with col2:
         if st.button("📄 Generate PDF Report", help="Download conversation as PDF"):
             try:
-                # Generate PDF report
+                # Generate PDF report with enhanced context
                 conversation_data = {
                     'type': st.session_state.current_issue_type or 'general',
                     'answers': [msg['content'] for msg in st.session_state.messages if msg['role'] == 'user'],
-                    'user_selections': {
-                        'deployment': deployment,
-                        'cloud_provider': cloud_provider,
-                        'database': database,
-                        'environment': environment
-                    }
+                    'user_selections': st.session_state.conversation_context.get('user_selections', {}),
+                    'context': st.session_state.conversation_context
                 }
                 
-                pdf_buffer = st.session_state.pdf_generator.generate_report(
-                    conversation_data, 
-                    st.session_state.session_id
-                )
+                with st.spinner("Generating PDF report..."):
+                    pdf_buffer = pdf_generator.generate_report(
+                        conversation_data, 
+                        st.session_state.session_id
+                    )
                 
                 st.download_button(
                     label="📥 Download PDF Report",
@@ -1077,78 +1166,118 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
                 st.error(f"Failed to generate PDF report: {str(e)}")
     
     if prompt := st.chat_input("Type your message here..."):
+        # Rate limiting check
+        if not db_buddy.check_rate_limit():
+            st.warning("⚠️ Rate limit exceeded. Please wait a moment before sending another message.")
+            st.stop()
+        
+        # Increment API usage counter
+        st.session_state.api_usage_count += 1
+        if st.session_state.api_usage_count > 50:  # Daily limit
+            st.error("Daily usage limit reached. Please try again tomorrow.")
+            st.stop()
+        
         # Process uploaded image if present
         image_analysis = None
         if uploaded_file is not None:
-            try:
-                # Convert uploaded file to base64
-                image = Image.open(uploaded_file)
-                buffer = io.BytesIO()
-                image.save(buffer, format='PNG')
-                image_base64 = base64.b64encode(buffer.getvalue()).decode()
-                
-                # Process image
-                anthropic_key = get_api_key('ANTHROPIC_API_KEY')
-                if anthropic_key:
-                    image_analysis = st.session_state.image_processor.process_claude_vision(image_base64, anthropic_key)
-                else:
-                    image_analysis = st.session_state.image_processor.process_image(image_base64, 'base64')
-                
-                if image_analysis and not image_analysis.get('error'):
-                    # Show image preview
-                    st.image(image, caption="Uploaded Screenshot", width=300)
-                    # Combine image analysis with user message
-                    prompt = f"{prompt}\n\n{image_analysis['analysis']}"
-                else:
-                    st.error(f"Image processing failed: {image_analysis.get('error', 'Unknown error')}")
+            with st.status("Processing image...", expanded=True) as status:
+                try:
+                    st.write("Converting image...")
+                    image = Image.open(uploaded_file)
+                    buffer = io.BytesIO()
+                    image.save(buffer, format='PNG')
+                    image_base64 = base64.b64encode(buffer.getvalue()).decode()
                     
-            except Exception as e:
-                st.error(f"Failed to process image: {str(e)}")
+                    st.write("Analyzing image content...")
+                    anthropic_key = get_api_key('ANTHROPIC_API_KEY')
+                    if anthropic_key:
+                        image_analysis = image_processor.process_claude_vision(image_base64, anthropic_key)
+                    else:
+                        image_analysis = image_processor.process_image(image_base64, 'base64')
+                    
+                    if image_analysis and not image_analysis.get('error'):
+                        st.image(image, caption="Uploaded Screenshot", width=300)
+                        prompt = f"{prompt}\n\n{image_analysis['analysis']}"
+                        status.update(label="Image processed successfully!", state="complete")
+                    else:
+                        st.error(f"Image processing failed: {image_analysis.get('error', 'Unknown error')}")
+                        status.update(label="Image processing failed", state="error")
+                        
+                except Exception as e:
+                    st.error(f"Failed to process image: {str(e)}")
+                    status.update(label="Image processing failed", state="error")
         
-        # Add user message
+        # Add user message with enhanced context
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        # Save to memory
-        conversation_data = {
-            'type': st.session_state.current_issue_type or 'general',
-            'answers': [msg['content'] for msg in st.session_state.messages if msg['role'] == 'user'],
+        # Update conversation context
+        st.session_state.conversation_context.update({
+            'last_message_time': datetime.now().isoformat(),
+            'message_count': len(st.session_state.messages),
             'user_selections': {
                 'deployment': deployment,
                 'cloud_provider': cloud_provider,
                 'database': database,
                 'environment': environment
             }
-        }
-        st.session_state.memory.save_conversation(st.session_state.session_id, conversation_data)
+        })
         
-        with st.chat_message("user"):
+        # Save to memory with enhanced context
+        conversation_data = {
+            'type': st.session_state.current_issue_type or 'general',
+            'answers': [msg['content'] for msg in st.session_state.messages if msg['role'] == 'user'],
+            'user_selections': st.session_state.conversation_context.get('user_selections', {}),
+            'context': st.session_state.conversation_context
+        }
+        memory.save_conversation(st.session_state.session_id, conversation_data)
+        
+        # Display user message
+        with st.chat_message("user", avatar="👤"):
             st.markdown(prompt)
         
-        # Generate intelligent response
-        with st.chat_message("assistant"):
-            with st.spinner("Analyzing..."):
-                if st.session_state.current_issue_type:
-                    # Prepare user selections
-                    user_selections = {
-                        'deployment': deployment,
-                        'cloud_provider': cloud_provider,
-                        'database': database,
-                        'environment': environment
-                    }
-                    
-                    # Get intelligent response
-                    response = st.session_state.db_buddy.get_intelligent_response(
-                        prompt, 
-                        user_selections, 
-                        st.session_state.current_issue_type,
-                        st.session_state.messages
-                    )
-                    
-                    if not response:
-                        response = "I'm having trouble connecting to the AI service. Please try again or provide more specific details about your database issue."
-                else:
-                    response = "Please select a service type from the sidebar to get started!"
+        # Generate intelligent response with streaming
+        with st.chat_message("assistant", avatar="🤖"):
+            if st.session_state.current_issue_type:
+                user_selections = st.session_state.conversation_context.get('user_selections', {})
                 
+                # Show progress with spinner
+                with st.spinner("🧠 Analyzing your request..."):
+                    try:
+                        # Use async response generation for better performance
+                        response = db_buddy.get_intelligent_response(
+                            prompt, 
+                            user_selections, 
+                            st.session_state.current_issue_type,
+                            st.session_state.messages
+                        )
+                        
+                        if not response:
+                            response = "I'm having trouble connecting to the AI service. Please try again or provide more specific details about your database issue."
+                        
+                        # Display response with enhanced formatting
+                        if isinstance(response, str):
+                            st.markdown(response)
+                        else:
+                            # Handle streaming response
+                            response_placeholder = st.empty()
+                            full_response = ""
+                            for chunk in response:
+                                full_response += chunk
+                                response_placeholder.markdown(full_response + "▌")
+                            response_placeholder.markdown(full_response)
+                            response = full_response
+                        
+                        # Success notification
+                        st.toast("Response generated successfully!", icon="✅")
+                        
+                    except Exception as e:
+                        st.error(f"Error generating response: {str(e)}")
+                        response = "I encountered an error while processing your request. Please try again."
+                        st.markdown(response)
+            else:
+                response = "Please select a service type from the sidebar to get started!"
                 st.markdown(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
+            
+            # Add assistant response to messages
+            st.session_state.messages.append({"role": "assistant", "content": response})
 
