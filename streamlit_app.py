@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings('ignore', category=SyntaxWarning)
+
 import streamlit as st
 import requests
 import json
@@ -358,14 +361,14 @@ FROM pg_tables WHERE tablename LIKE '%examiner%' OR tablename LIKE '%block%';
         
         if asking_about_plan:
             # Add deployment-specific guidance for execution plans
-        deployment_guidance = self.get_deployment_specific_guidance(user_selections)
-        response += deployment_guidance
-        
-        response += f"\n\n📊 **Yes, please share the execution plan!**\n\nRun this command and share the output:\n```sql\nEXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) \n{sql_query};\n```\n\nThis will help me identify specific bottlenecks and provide targeted index recommendations."
+            deployment_guidance = self.get_deployment_specific_guidance(user_selections)
+            response += deployment_guidance
+            
+            response += f"\n\n📊 **Yes, please share the execution plan!**\n\nRun this command and share the output:\n```sql\nEXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) \n{sql_query};\n```\n\nThis will help me identify specific bottlenecks and provide targeted index recommendations."
         else:
             # Add deployment-specific next steps
-        deployment_guidance = self.get_deployment_specific_guidance(user_selections)
-        response += deployment_guidance
+            deployment_guidance = self.get_deployment_specific_guidance(user_selections)
+            response += deployment_guidance
         
         response += f"\n\n📊 **Next Steps:**\n1. Run the EXPLAIN ANALYZE command above to get execution plan\n2. Check current indexes on the tables/views\n3. Review the underlying view definitions\n4. Implement the suggested indexes\n\n**Expected improvements**: Proper indexing should reduce query time and resource consumption significantly."
         

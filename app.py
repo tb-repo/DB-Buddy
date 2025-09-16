@@ -1025,17 +1025,100 @@ Choose option 1 if the user's answers are vague or you need technical details. C
             'timestamp': datetime.now()
         }
         
-        # Use immediate fallback messages for fast response
-        fallback_messages = {
-            'troubleshooting': "👋 Hi! I'm here to help you troubleshoot database issues. What problem are you experiencing? Feel free to describe it in your own words - I'll understand and provide targeted solutions.",
-            'query': "👋 Hello! I specialize in SQL query optimization. Share your query and describe what's happening - slow performance, errors, or anything else. I'll analyze it and provide specific recommendations.",
-            'performance': "👋 Welcome! I'm here to help with database performance issues. Tell me what you're experiencing - slow queries, high resource usage, or any performance concerns. I'll help you identify and fix the root cause.",
-            'architecture': "👋 Great to meet you! I'll help design the right database architecture for your needs. Tell me about your application, expected scale, and any specific requirements you have in mind.",
-            'capacity': "👋 Hi there! I specialize in database capacity planning. Share details about your current or expected workload, data size, user count - whatever you know. I'll help you plan the right infrastructure.",
-            'security': "👋 Hello! I'm here to help with database security and compliance. What are your security concerns or requirements? Whether it's access control, encryption, or compliance standards, I'll guide you through it."
+        # Intelligent, context-aware welcome messages
+        welcome_messages = {
+            'troubleshooting': """👋 **Database Troubleshooting Expert Ready**
+
+I'm here to help resolve your database issues quickly and effectively. Whether you're facing:
+• **Connection problems** (timeouts, refused connections)
+• **Performance issues** (slow queries, high resource usage)
+• **Error messages** (crashes, corruption, deadlocks)
+• **Operational challenges** (backup failures, replication lag)
+
+**Just describe your situation** - I'll analyze the symptoms and provide targeted solutions with specific commands and best practices.
+
+💡 *Tip: Include error messages, database system, and environment details for faster diagnosis.*""",
+            
+            'query': """👋 **SQL Query Optimization Specialist**
+
+I specialize in making your queries faster and more efficient. I can help with:
+• **Slow SELECT queries** - Index recommendations and query rewriting
+• **Complex JOINs** - Optimization strategies and execution plan analysis
+• **INSERT/UPDATE performance** - Batch processing and locking strategies
+• **Execution plan analysis** - Bottleneck identification and solutions
+
+**Share your SQL query** and describe the performance issue. I'll provide:
+✅ Specific index recommendations
+✅ Query optimization techniques
+✅ Performance improvement estimates
+
+💡 *Paste your query directly - I'll analyze table structures, joins, and filters.*""",
+            
+            'performance': """👋 **Database Performance Optimization Expert**
+
+I'll help you identify and resolve performance bottlenecks across your entire database system:
+• **Query performance** - Slow execution times and resource consumption
+• **System resources** - CPU, memory, and I/O optimization
+• **Concurrency issues** - Lock contention and blocking queries
+• **Scaling challenges** - Read replicas, partitioning, and architecture
+
+**Tell me what you're experiencing:**
+- Current performance metrics (if available)
+- Specific symptoms (slow responses, timeouts, high resource usage)
+- Database system and environment details
+
+💡 *I'll provide monitoring queries, optimization strategies, and implementation guidance.*""",
+            
+            'architecture': """👋 **Database Architecture Design Consultant**
+
+I'll help you design robust, scalable database architectures tailored to your needs:
+• **Schema design** - Normalization, indexing strategies, and data modeling
+• **Scalability planning** - Partitioning, sharding, and replication strategies
+• **High availability** - Failover, backup, and disaster recovery design
+• **Cloud architecture** - Multi-region, auto-scaling, and cost optimization
+
+**Share your requirements:**
+- Application type and expected workload
+- Data volume and growth projections
+- Performance and availability requirements
+- Budget and technology constraints
+
+💡 *I'll provide detailed architecture diagrams, implementation roadmaps, and best practices.*""",
+            
+            'capacity': """👋 **Database Capacity Planning Specialist**
+
+I'll help you right-size your database infrastructure for optimal performance and cost:
+• **Hardware sizing** - CPU, memory, and storage requirements
+• **Growth planning** - Scaling strategies for increasing workloads
+• **Cost optimization** - Resource allocation and cloud pricing strategies
+• **Performance forecasting** - Capacity thresholds and monitoring
+
+**Tell me about your workload:**
+- Current or expected data volume
+- User count and concurrency patterns
+- Query types (OLTP, OLAP, or mixed)
+- Performance requirements and SLAs
+
+💡 *I'll provide specific hardware recommendations, scaling timelines, and cost projections.*""",
+            
+            'security': """👋 **Database Security & Compliance Expert**
+
+I'll help you implement comprehensive database security and meet compliance requirements:
+• **Access control** - Role-based permissions and authentication strategies
+• **Data protection** - Encryption at rest and in transit
+• **Audit & compliance** - GDPR, HIPAA, SOX, PCI-DSS requirements
+• **Threat prevention** - SQL injection, privilege escalation, and monitoring
+
+**What are your security priorities:**
+- Data sensitivity level and classification
+- Compliance requirements (industry standards)
+- Current security concerns or incidents
+- User access patterns and requirements
+
+💡 *I'll provide security checklists, implementation guides, and compliance roadmaps.*"""
         }
         
-        return fallback_messages.get(issue_type, "👋 Hello! How can I help you with your database needs today?")
+        return welcome_messages.get(issue_type, "👋 Hello! How can I help you with your database needs today?")
     
     def contains_lov_selections(self, user_input):
         """Check if user input contains LOV selections"""
@@ -1186,47 +1269,580 @@ Choose option 1 if the user's answers are vague or you need technical details. C
         user_selections = conversation.get('user_selections', {})
         conversation_history = conversation.get('answers', [])
         
-        # Build conversation context
-        context = f"Service type: {service_type}\n"
-        if user_selections:
-            context += "System configuration:\n"
-            for key, value in user_selections.items():
-                context += f"- {key}: {value}\n"
+        # Comprehensive analysis of user input
+        analysis = self.analyze_user_input_comprehensive(user_input, user_selections, service_type)
         
-        if len(conversation_history) > 1:
-            context += f"\nPrevious conversation:\n"
-            for i, msg in enumerate(conversation_history[-3:], 1):  # Last 3 messages for context
-                context += f"User {i}: {msg[:200]}...\n" if len(msg) > 200 else f"User {i}: {msg}\n"
+        # Build rich conversation context
+        context = self.build_rich_context(service_type, user_selections, conversation_history, analysis)
         
-        # Get AI response with full context
-        ai_response = self.get_ai_response(context, user_input, user_selections)
+        # Get intelligent response based on service type and analysis
+        response = self.get_service_specific_response(service_type, user_input, context, analysis, user_selections)
         
-        if ai_response:
-            return ai_response
+        if response:
+            return response
         
-        # Fallback to specialized recommendations if AI unavailable
-        specialized = self.get_specialized_recommendation(user_input, user_selections)
-        if specialized:
-            return specialized
-        
-        # Final fallback
-        return self.get_contextual_fallback(service_type, user_input, user_selections)
+        # Enhanced fallback with context awareness
+        return self.get_enhanced_fallback(service_type, user_input, user_selections, analysis)
     
-    def get_contextual_fallback(self, service_type, user_input, user_selections):
-        """Provide contextual fallback responses when AI is unavailable"""
-        input_lower = user_input.lower()
+    def analyze_user_input_comprehensive(self, user_input, user_selections, service_type):
+        """Comprehensive analysis of user input across all service types"""
+        user_lower = user_input.lower()
         
-        if service_type == 'troubleshooting':
-            if any(word in input_lower for word in ['connection', 'timeout', 'error']):
-                return "I can help with connection issues. Please share the exact error message and your database system details for specific troubleshooting steps."
-        elif service_type == 'query':
-            if 'select' in input_lower or 'sql' in input_lower:
-                return "I see you have a SQL query. Please share the complete query and describe the performance issue you're experiencing."
-        elif service_type == 'performance':
-            if any(word in input_lower for word in ['slow', 'cpu', 'memory']):
-                return "I can help optimize performance. Please describe the specific symptoms and share any metrics you have available."
+        # Multi-category keyword analysis
+        keywords = {
+            'troubleshooting': {
+                'timeout': ['timeout', 'timed out', 'connection timeout', 'query timeout'],
+                'connection': ['connection', 'connect', 'connectivity', 'network', 'refused'],
+                'error': ['error', 'exception', 'failed', 'crash', 'corrupt'],
+                'performance': ['slow', 'performance', 'latency', 'response time'],
+                'resource': ['memory', 'cpu', 'disk', 'i/o', 'load', 'usage']
+            },
+            'query': {
+                'sql_types': ['select', 'insert', 'update', 'delete', 'create', 'alter'],
+                'performance': ['slow', 'timeout', 'execution time', 'plan', 'index'],
+                'joins': ['join', 'left join', 'inner join', 'outer join'],
+                'aggregation': ['group by', 'order by', 'having', 'count', 'sum', 'avg']
+            },
+            'performance': {
+                'metrics': ['cpu', 'memory', 'disk', 'i/o', 'throughput', 'latency'],
+                'symptoms': ['slow', 'high', 'bottleneck', 'wait', 'blocking'],
+                'monitoring': ['metrics', 'monitoring', 'alerts', 'dashboard']
+            },
+            'architecture': {
+                'design': ['schema', 'design', 'model', 'structure', 'normalization'],
+                'scaling': ['scale', 'partition', 'shard', 'replica', 'cluster'],
+                'availability': ['ha', 'failover', 'backup', 'disaster recovery']
+            },
+            'capacity': {
+                'sizing': ['size', 'capacity', 'storage', 'hardware', 'resources'],
+                'growth': ['growth', 'scale', 'users', 'data volume', 'concurrent'],
+                'metrics': ['gb', 'tb', 'cores', 'ram', 'iops', 'connections']
+            },
+            'security': {
+                'access': ['access', 'permissions', 'roles', 'authentication', 'authorization'],
+                'encryption': ['encrypt', 'ssl', 'tls', 'security', 'compliance'],
+                'audit': ['audit', 'logging', 'monitoring', 'compliance', 'gdpr', 'hipaa']
+            }
+        }
         
-        return f"I understand you need help with {service_type}. Please provide more specific details about your situation so I can give you targeted recommendations."
+        # Detect relevant categories and subcategories
+        detected_categories = {}
+        service_keywords = keywords.get(service_type, {})
+        
+        for category, category_keywords in service_keywords.items():
+            matches = [kw for kw in category_keywords if kw in user_lower]
+            if matches:
+                detected_categories[category] = matches
+        
+        # Extract technical details
+        tech_details = {
+            'database': self.extract_database_type(user_input),
+            'cloud_provider': self.extract_cloud_provider(user_input),
+            'environment': self.extract_environment(user_input),
+            'deployment': self.extract_deployment_type(user_input),
+            'has_sql': self.contains_sql_query(user_input),
+            'has_metrics': self.contains_metrics(user_input),
+            'urgency': self.assess_urgency(user_input)
+        }
+        
+        return {
+            'service_type': service_type,
+            'detected_categories': detected_categories,
+            'technical_details': tech_details,
+            'input_length': len(user_input),
+            'complexity': self.assess_input_complexity(user_input),
+            'user_expertise': self.assess_user_expertise(user_input)
+        }
+    
+    def extract_database_type(self, text):
+        """Extract database type from text"""
+        db_types = ['postgresql', 'postgres', 'mysql', 'aurora', 'rds', 'mongodb', 'oracle', 'sql server']
+        text_lower = text.lower()
+        for db_type in db_types:
+            if db_type in text_lower:
+                return db_type
+        return 'unknown'
+    
+    def extract_cloud_provider(self, text):
+        """Extract cloud provider from text"""
+        providers = ['aws', 'azure', 'gcp', 'google cloud']
+        text_lower = text.lower()
+        for provider in providers:
+            if provider in text_lower:
+                return provider
+        return 'unknown'
+    
+    def extract_environment(self, text):
+        """Extract environment from text"""
+        environments = ['production', 'staging', 'development', 'test']
+        text_lower = text.lower()
+        for env in environments:
+            if env in text_lower:
+                return env
+        return 'unknown'
+    
+    def extract_deployment_type(self, text):
+        """Extract deployment type from text"""
+        deployments = ['lambda', 'ec2', 'container', 'kubernetes', 'serverless']
+        text_lower = text.lower()
+        for deployment in deployments:
+            if deployment in text_lower:
+                return deployment
+        return 'unknown'
+    
+    def assess_issue_severity(self, text, issues):
+        """Assess issue severity based on keywords"""
+        high_severity = ['production', 'critical', 'down', 'outage', 'failed']
+        medium_severity = ['slow', 'timeout', 'performance']
+        
+        text_lower = text.lower()
+        
+        if any(keyword in text_lower for keyword in high_severity):
+            return 'high'
+        elif any(keyword in text_lower for keyword in medium_severity):
+            return 'medium'
+        else:
+            return 'low'
+    
+    def build_rich_context(self, service_type, user_selections, conversation_history, analysis):
+        """Build comprehensive context for intelligent responses"""
+        context = f"Service Type: {service_type}\n"
+        
+        # System configuration
+        if user_selections:
+            context += "\nSystem Configuration:\n"
+            for key, value in user_selections.items():
+                context += f"- {key.title()}: {value}\n"
+        
+        # Analysis insights
+        context += f"\nInput Analysis:\n"
+        context += f"- Complexity: {analysis['complexity']}\n"
+        context += f"- User Expertise: {analysis['user_expertise']}\n"
+        context += f"- Urgency: {analysis['technical_details']['urgency']}\n"
+        
+        if analysis['detected_categories']:
+            context += f"- Detected Categories: {list(analysis['detected_categories'].keys())}\n"
+        
+        # Conversation history
+        if len(conversation_history) > 1:
+            context += f"\nConversation History:\n"
+            for i, msg in enumerate(conversation_history[-2:], 1):
+                context += f"Previous {i}: {msg[:150]}...\n" if len(msg) > 150 else f"Previous {i}: {msg}\n"
+        
+        return context
+    
+    def get_service_specific_response(self, service_type, user_input, context, analysis, user_selections):
+        """Generate service-specific intelligent responses"""
+        # Check for SQL queries first (highest priority)
+        if analysis['technical_details']['has_sql']:
+            return self.get_specialized_recommendation(user_input, user_selections)
+        
+        # Service-specific response generation
+        response_generators = {
+            'troubleshooting': self.get_intelligent_troubleshooting_response,
+            'query': self.get_intelligent_query_response,
+            'performance': self.get_intelligent_performance_response,
+            'architecture': self.get_intelligent_architecture_response,
+            'capacity': self.get_intelligent_capacity_response,
+            'security': self.get_intelligent_security_response
+        }
+        
+        generator = response_generators.get(service_type)
+        if generator:
+            return generator(user_input, context, analysis, user_selections)
+        
+        # Use AI for complex cases
+        return self.get_ai_response_enhanced(context, user_input, user_selections, analysis)
+    
+    def contains_metrics(self, text):
+        """Check if text contains performance metrics"""
+        metrics = ['ms', 'seconds', 'minutes', 'gb', 'tb', 'mb', '%', 'cpu', 'memory', 'connections', 'qps', 'tps']
+        return any(metric in text.lower() for metric in metrics)
+    
+    def assess_urgency(self, text):
+        """Assess urgency level from text"""
+        high_urgency = ['critical', 'urgent', 'production', 'down', 'outage', 'failed', 'emergency']
+        medium_urgency = ['slow', 'performance', 'timeout', 'issue', 'problem']
+        
+        text_lower = text.lower()
+        if any(word in text_lower for word in high_urgency):
+            return 'high'
+        elif any(word in text_lower for word in medium_urgency):
+            return 'medium'
+        return 'low'
+    
+    def assess_input_complexity(self, text):
+        """Assess complexity of user input"""
+        if len(text) > 500 or text.count('\n') > 10:
+            return 'high'
+        elif len(text) > 100 or any(keyword in text.lower() for keyword in ['select', 'join', 'where', 'performance']):
+            return 'medium'
+        return 'low'
+    
+    def assess_user_expertise(self, text):
+        """Assess user's technical expertise level"""
+        expert_terms = ['execution plan', 'index scan', 'buffer pool', 'query optimizer', 'statistics', 'partitioning']
+        intermediate_terms = ['sql', 'query', 'database', 'performance', 'index', 'join']
+        
+        text_lower = text.lower()
+        if any(term in text_lower for term in expert_terms):
+            return 'expert'
+        elif any(term in text_lower for term in intermediate_terms):
+            return 'intermediate'
+        return 'beginner'
+    
+    def get_intelligent_troubleshooting_response(self, user_input, context, analysis, user_selections):
+        """Generate intelligent troubleshooting responses"""
+        categories = analysis['detected_categories']
+        urgency = analysis['technical_details']['urgency']
+        
+        if 'timeout' in categories:
+            return self.get_timeout_troubleshooting_fallback(user_input, user_selections)
+        elif 'connection' in categories:
+            return self.get_connection_troubleshooting_fallback(user_input, user_selections)
+        elif 'error' in categories:
+            return self.get_error_troubleshooting_response(user_input, user_selections, urgency)
+        elif 'performance' in categories:
+            return self.get_performance_troubleshooting_fallback(user_input, user_selections)
+        
+        return self.get_ai_response_enhanced(context, user_input, user_selections, analysis)
+    
+    def get_intelligent_query_response(self, user_input, context, analysis, user_selections):
+        """Generate intelligent query optimization responses"""
+        categories = analysis['detected_categories']
+        
+        if 'sql_types' in categories:
+            return f"""🔍 **SQL Query Analysis Ready**
+
+I can see you're working with {', '.join(categories['sql_types'])} operations. To provide the most accurate optimization recommendations:
+
+**Please share:**
+• Your complete SQL query
+• Current execution time or performance issue
+• Table sizes (approximate row counts)
+• Any error messages you're seeing
+
+**I'll provide:**
+✅ Specific index recommendations
+✅ Query rewrite suggestions
+✅ Execution plan analysis
+✅ Performance improvement estimates
+
+💡 *The more details you provide, the more targeted my recommendations will be.*"""
+        
+        return self.get_ai_response_enhanced(context, user_input, user_selections, analysis)
+    
+    def get_intelligent_performance_response(self, user_input, context, analysis, user_selections):
+        """Generate intelligent performance optimization responses"""
+        categories = analysis['detected_categories']
+        has_metrics = analysis['technical_details']['has_metrics']
+        
+        if 'metrics' in categories and has_metrics:
+            return f"""📊 **Performance Analysis with Metrics**
+
+Great! I can see you have performance metrics. This will help me provide precise recommendations.
+
+**Based on your input, I'll analyze:**
+• Resource utilization patterns
+• Performance bottlenecks
+• Optimization opportunities
+• Monitoring strategies
+
+**Next steps:**
+1. Share any additional metrics (query execution times, system resources)
+2. Describe the performance symptoms you're experiencing
+3. Let me know your performance targets or SLAs
+
+💡 *With metrics, I can provide quantified improvement recommendations.*"""
+        
+        return self.get_ai_response_enhanced(context, user_input, user_selections, analysis)
+    
+    def get_intelligent_architecture_response(self, user_input, context, analysis, user_selections):
+        """Generate intelligent architecture design responses"""
+        categories = analysis['detected_categories']
+        
+        if 'design' in categories:
+            return f"""🏗️ **Database Architecture Design**
+
+I'll help you design a robust database architecture. Based on your input, I can see you're interested in schema and design aspects.
+
+**Let's define your requirements:**
+• **Application type**: Web app, analytics, e-commerce, etc.
+• **Data volume**: Current size and growth projections
+• **User load**: Concurrent users and usage patterns
+• **Performance requirements**: Response time and throughput needs
+• **Availability requirements**: Uptime SLAs and disaster recovery
+
+**I'll provide:**
+✅ Schema design recommendations
+✅ Indexing strategies
+✅ Partitioning and scaling approaches
+✅ Technology stack recommendations
+
+💡 *Share your specific requirements for a tailored architecture design.*"""
+        
+        return self.get_ai_response_enhanced(context, user_input, user_selections, analysis)
+    
+    def get_intelligent_capacity_response(self, user_input, context, analysis, user_selections):
+        """Generate intelligent capacity planning responses"""
+        categories = analysis['detected_categories']
+        has_metrics = analysis['technical_details']['has_metrics']
+        
+        if 'sizing' in categories or has_metrics:
+            return f"""📏 **Database Capacity Planning**
+
+I'll help you determine the right infrastructure sizing for your database needs.
+
+**Current analysis shows:**
+• You're looking at capacity and sizing requirements
+• {'Metrics provided - excellent for accurate sizing!' if has_metrics else 'Additional metrics would help with precision'}
+
+**For accurate recommendations, please share:**
+• **Workload type**: OLTP, OLAP, or mixed
+• **Data volume**: Current size and growth rate
+• **User patterns**: Peak concurrent users and usage times
+• **Performance targets**: Response time and throughput requirements
+• **Budget constraints**: Any cost considerations
+
+**I'll provide:**
+✅ Hardware specifications (CPU, memory, storage)
+✅ Scaling timeline and growth planning
+✅ Cost optimization strategies
+✅ Performance monitoring recommendations
+
+💡 *Include any current performance metrics for more accurate sizing.*"""
+        
+        return self.get_ai_response_enhanced(context, user_input, user_selections, analysis)
+    
+    def get_intelligent_security_response(self, user_input, context, analysis, user_selections):
+        """Generate intelligent security responses"""
+        categories = analysis['detected_categories']
+        
+        if 'access' in categories:
+            return f"""🔐 **Database Security & Access Control**
+
+I'll help you implement comprehensive database security measures.
+
+**Security areas I can assist with:**
+• **Access Control**: Role-based permissions and authentication
+• **Data Protection**: Encryption at rest and in transit
+• **Compliance**: GDPR, HIPAA, SOX, PCI-DSS requirements
+• **Monitoring**: Audit logging and threat detection
+
+**To provide targeted recommendations:**
+• **Data sensitivity**: What type of data are you protecting?
+• **Compliance requirements**: Any specific standards you need to meet?
+• **Current security concerns**: Any specific threats or vulnerabilities?
+• **User access patterns**: How many users and what access levels?
+
+**I'll provide:**
+✅ Security implementation checklists
+✅ Compliance roadmaps
+✅ Access control strategies
+✅ Monitoring and alerting setup
+
+💡 *Security is critical - I'll ensure comprehensive coverage of all aspects.*"""
+        
+        return self.get_ai_response_enhanced(context, user_input, user_selections, analysis)
+    
+    def get_error_troubleshooting_response(self, user_input, user_selections, urgency):
+        """Specialized response for error troubleshooting"""
+        urgency_prefix = "🚨 **URGENT** - " if urgency == 'high' else "⚠️ "
+        
+        return f"""{urgency_prefix}**Database Error Troubleshooting**
+
+**Immediate Actions:**
+1. **Identify the exact error** - Share the complete error message
+2. **Check system status** - Verify database service is running
+3. **Review recent changes** - Any deployments or configuration changes?
+4. **Check logs** - Database error logs and system logs
+
+**Critical Information Needed:**
+• Complete error message (exact text)
+• When the error started occurring
+• Database system and version
+• Recent changes or deployments
+• Error frequency (constant/intermittent)
+
+**I'll provide:**
+✅ Root cause analysis
+✅ Step-by-step resolution steps
+✅ Prevention strategies
+✅ Monitoring recommendations
+
+{'🔥 **Production Issue**: I prioritize immediate resolution for production errors.' if urgency == 'high' else '💡 **Tip**: Include error logs and system details for faster diagnosis.'}"""
+    
+    def get_ai_response_enhanced(self, context, user_input, user_selections, analysis):
+        """Enhanced AI response with comprehensive analysis"""
+        if not self.use_ai:
+            return None
+        
+        # Build enhanced system prompt based on analysis
+        expertise_level = analysis['user_expertise']
+        urgency = analysis['technical_details']['urgency']
+        service_type = analysis['service_type']
+        
+        system_prompt = f"""You are DB-Buddy, an expert database consultant with deep expertise in {service_type}.
+
+User Profile:
+- Expertise Level: {expertise_level}
+- Urgency: {urgency}
+- Input Complexity: {analysis['complexity']}
+
+Context: {context}
+
+Response Guidelines:
+- Adjust technical depth to user's {expertise_level} level
+- {'Prioritize immediate solutions for high urgency' if urgency == 'high' else 'Provide comprehensive analysis and recommendations'}
+- Include specific commands, queries, and implementation steps
+- Provide monitoring and prevention strategies
+- Be solution-focused and actionable
+
+User's specific situation: {user_input}
+
+Provide expert recommendations tailored to their needs and expertise level."""
+        
+        # Get AI response using the appropriate provider
+        if self.use_ai == 'groq':
+            return self.get_groq_response(system_prompt, context, user_input)
+        elif self.use_ai == 'huggingface':
+            return self.get_huggingface_response(system_prompt, context, user_input)
+        elif self.use_ai == 'ollama':
+            return self.get_ollama_response(system_prompt, context, user_input)
+        
+        return None
+    
+    def get_enhanced_fallback(self, service_type, user_input, user_selections, analysis):
+        """Enhanced fallback responses with context awareness"""
+        expertise = analysis['user_expertise']
+        urgency = analysis['technical_details']['urgency']
+        
+        fallback_responses = {
+            'troubleshooting': f"""🔧 **Database Troubleshooting Assistant**
+
+{'🚨 I understand this is urgent. ' if urgency == 'high' else ''}I'm here to help resolve your database issues.
+
+**To provide the most effective help:**
+• Share specific error messages or symptoms
+• Include your database system and environment details
+• Describe when the issue started and any recent changes
+
+{'I'll provide step-by-step solutions with detailed explanations.' if expertise == 'beginner' else 'I can provide advanced diagnostic commands and optimization strategies.' if expertise == 'expert' else 'I'll give you practical solutions with technical details.'}""",
+            
+            'query': f"""🔍 **SQL Query Optimization Expert**
+
+I specialize in making queries faster and more efficient.
+
+**For the best optimization recommendations:**
+• Share your complete SQL query
+• Describe the performance issue (slow execution, timeouts, etc.)
+• Include table sizes and current execution times if available
+
+{'I'll explain optimization concepts clearly with examples.' if expertise == 'beginner' else 'I can provide advanced query tuning and execution plan analysis.' if expertise == 'expert' else 'I'll give you practical optimization techniques.'}""",
+            
+            'performance': f"""📊 **Database Performance Specialist**
+
+I'll help identify and resolve performance bottlenecks.
+
+**To provide targeted recommendations:**
+• Describe the performance symptoms you're experiencing
+• Share any metrics or monitoring data you have
+• Include your database system and infrastructure details
+
+{'I'll provide clear explanations and step-by-step guidance.' if expertise == 'beginner' else 'I can dive deep into performance tuning and advanced optimization.' if expertise == 'expert' else 'I'll give you practical performance improvements.'}""",
+            
+            'architecture': f"""🏗️ **Database Architecture Consultant**
+
+I'll help design scalable, robust database architectures.
+
+**To create the right architecture:**
+• Describe your application and expected workload
+• Share data volume and user requirements
+• Include performance and availability needs
+
+{'I'll explain architectural concepts with clear examples.' if expertise == 'beginner' else 'I can provide advanced architecture patterns and best practices.' if expertise == 'expert' else 'I'll give you practical architecture recommendations.'}""",
+            
+            'capacity': f"""📏 **Database Capacity Planning Expert**
+
+I'll help you size your database infrastructure correctly.
+
+**For accurate capacity planning:**
+• Share your workload characteristics and data volume
+• Include user count and usage patterns
+• Describe performance requirements and growth projections
+
+{'I'll explain sizing concepts and provide clear recommendations.' if expertise == 'beginner' else 'I can provide detailed capacity modeling and optimization strategies.' if expertise == 'expert' else 'I'll give you practical sizing recommendations.'}""",
+            
+            'security': f"""🔐 **Database Security Specialist**
+
+I'll help implement comprehensive database security.
+
+**For effective security planning:**
+• Describe your data sensitivity and compliance requirements
+• Share current security concerns or requirements
+• Include user access patterns and authentication needs
+
+{'I'll explain security concepts clearly with implementation guides.' if expertise == 'beginner' else 'I can provide advanced security architectures and compliance strategies.' if expertise == 'expert' else 'I'll give you practical security implementations.'}"""
+        }
+        
+        return fallback_responses.get(service_type, "I'm here to help with your database needs. Please share more details about your specific situation.")
+    
+    def get_timeout_troubleshooting_fallback(self, user_input, user_selections):
+        """Fallback response for timeout issues"""
+        return """🔍 **Timeout Issue Detected**
+
+⚡ **Immediate Checks:**
+1. **Connection Timeout**: Check network connectivity and firewall rules
+2. **Query Timeout**: Identify long-running queries with SHOW PROCESSLIST
+3. **Application Timeout**: Review connection pool and timeout settings
+4. **Resource Constraints**: Monitor CPU, memory, and I/O usage
+
+🛠️ **Quick Diagnostics:**
+- Check active connections and blocking queries
+- Review recent query execution times
+- Verify database server resources
+- Test network connectivity between client and server
+
+📊 **Next Steps:**
+Share specific error messages and timeout values for targeted solutions."""
+    
+    def get_connection_troubleshooting_fallback(self, user_input, user_selections):
+        """Fallback response for connection issues"""
+        return """🔍 **Connection Issue Detected**
+
+⚡ **Immediate Checks:**
+1. **Network Connectivity**: Test ping and telnet to database port
+2. **Authentication**: Verify username, password, and permissions
+3. **Connection Limits**: Check max_connections and current usage
+4. **Firewall Rules**: Ensure database port is accessible
+
+🛠️ **Quick Diagnostics:**
+- Test connection from different clients/locations
+- Check database server logs for connection errors
+- Verify connection string parameters
+- Monitor connection pool status
+
+📊 **Next Steps:**
+Share the exact error message and connection details for specific guidance."""
+    
+    def get_performance_troubleshooting_fallback(self, user_input, user_selections):
+        """Fallback response for performance issues"""
+        return """🔍 **Performance Issue Detected**
+
+⚡ **Immediate Checks:**
+1. **Query Performance**: Identify slow queries and execution plans
+2. **Resource Usage**: Monitor CPU, memory, and disk I/O
+3. **Index Usage**: Check for missing or unused indexes
+4. **Blocking**: Look for lock contention and blocking queries
+
+🛠️ **Quick Diagnostics:**
+- Run EXPLAIN on slow queries
+- Check database statistics and index usage
+- Monitor system resource utilization
+- Review recent schema or configuration changes
+
+📊 **Next Steps:**
+Share specific queries, execution times, or performance metrics for detailed analysis."""
     
     def has_substantial_information(self, message, user_selections):
         """Check if user provided enough information for analysis across all service categories"""
