@@ -666,9 +666,12 @@ Keep it conversational and encouraging. No bullet points or rigid structure."""
         
         # Get AI-generated welcome message
         if self.use_ai:
-            ai_welcome = self.get_ai_response_with_context("", welcome_prompt, {})
-            if ai_welcome:
-                return ai_welcome
+            try:
+                ai_welcome = self.get_ai_response_with_context("", welcome_prompt, {})
+                if ai_welcome:
+                    return ai_welcome
+            except:
+                pass
         
         # Fallback welcome messages
         fallback_messages = {
