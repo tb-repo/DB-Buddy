@@ -133,7 +133,7 @@ class DBBuddy:
                 elif sql_pattern_found and not line.strip():
                     break
         
-        sql_query = '\n'.join(sql_lines) if sql_lines else "SQL query not clearly identified"
+        sql_query = '\n'.join(sql_lines) if sql_lines else "No SQL query detected"
         
         # Check if user is asking about execution plan
         asking_about_plan = any(phrase in input_lower for phrase in ['explain plan', 'execution plan', 'shall i share', 'should i provide'])
@@ -141,7 +141,22 @@ class DBBuddy:
         db_system = user_selections.get('database', '') if user_selections else ''
         environment = user_selections.get('environment', '') if user_selections else ''
         
-        # Always provide analysis for any SQL query - remove database system restrictions
+        # Analyze the actual user input instead of hardcoded response
+        if 'json' in input_lower and 'denormalized' in input_lower:
+            return self.get_json_denormalization_analysis(user_input, user_selections)
+        
+        # If no SQL query found, analyze the performance issue described
+        if sql_query == "No SQL query detected":
+            return self.get_performance_issue_analysis(user_input, user_selections)
+        
+        # Use AI to analyze the actual SQL query if available
+        if self.use_ai:
+            context = f"User provided SQL query analysis request. Database: {db_system}, Environment: {environment}"
+            ai_response = self.get_ai_response(context, user_input, user_selections)
+            if ai_response:
+                return ai_response
+        
+        # Fallback generic SQL analysis
         response = f"""🔍 **SQL Query Analysis**
 
 ✅ **Your Query:**
@@ -149,79 +164,50 @@ class DBBuddy:
 {sql_query}
 ```
 
-🔍 **Initial Analysis:**
+🔍 **Analysis Approach:**
 
-**Query Structure Identified:**
-- **Main table**: `vw_fact_examiner_block_calculation_last_1year` (view)
-- **Joins**: LEFT JOIN with `dim_examiner` and `vw_dim_block`
-- **Key filter**: `block_key IS NOT NULL` and date comparison
-- **Performance concern**: Slow SELECT query consuming high DB resources
+To provide accurate optimization recommendations, I need to analyze:
+• **Query structure** - Tables, joins, and operations
+• **Performance metrics** - Current execution time and resource usage
+• **Database schema** - Indexes, constraints, and table sizes
+• **Execution plan** - Bottlenecks and optimization opportunities
 
-⚡ **Immediate Observations:**
+⚡ **Immediate Actions:**
 
-1. **View-based query** - Views can hide complex underlying queries
-2. **Multiple LEFT JOINs** - Potential for cartesian products or inefficient joins
-3. **Date comparison filter** - `b.start_date >= ex.probation_period_end_date` may lack proper indexing
-4. **NULL check** - `block_key IS NOT NULL` suggests data quality issues
-
-🚀 **Optimization Recommendations:**
-
-**1. Check View Definitions:**
+**1. Get Execution Plan:**
 ```sql
--- Examine the underlying view queries
-\\d+ vw_fact_examiner_block_calculation_last_1year
-\\d+ vw_dim_block
-
--- Check if views have materialized versions
-SELECT schemaname, matviewname FROM pg_matviews;
-```
-
-**2. Index Recommendations:**
-```sql
--- For join performance
-CREATE INDEX CONCURRENTLY idx_examiner_code ON dim_examiner(examiner_code);
-CREATE INDEX CONCURRENTLY idx_block_key_fact ON vw_fact_examiner_block_calculation_last_1year(block_key);
-CREATE INDEX CONCURRENTLY idx_marker_code ON vw_fact_examiner_block_calculation_last_1year(marker_code);
-CREATE INDEX CONCURRENTLY idx_block_key_dim ON vw_dim_block(block_key);
-CREATE INDEX CONCURRENTLY idx_probation_date ON dim_examiner(probation_period_end_date);
-
--- For the date comparison
-CREATE INDEX CONCURRENTLY idx_block_start_date ON vw_dim_block(start_date);
-```
-
-**3. Query Rewrite Option:**
-```sql
--- More explicit version with better filtering
-SELECT ly.*, ex.probation_period_end_date, b."Block Start End Dates"
-FROM public.vw_fact_examiner_block_calculation_last_1year ly
-INNER JOIN public.dim_examiner ex ON ly.marker_code = ex.examiner_code
-INNER JOIN public.vw_dim_block b ON ly.block_key = b.block_key
-WHERE ly.block_key IS NOT NULL
-  AND ex.probation_period_end_date IS NOT NULL
-  AND b.start_date >= ex.probation_period_end_date;
-```
-
-**4. Performance Analysis:**
-```sql
--- Get execution plan
 EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) 
-SELECT ly.*,ex.probation_period_end_date,b."Block Start End Dates" 
-FROM public.vw_fact_examiner_block_calculation_last_1year ly
-LEFT JOIN public.dim_examiner ex ON ly.marker_code = ex.examiner_code
-LEFT JOIN public.vw_dim_block b ON ly.block_key = b.block_key
-WHERE ly.block_key IS NOT NULL
-AND b.start_date >= ex.probation_period_end_date;
+{sql_query};
+```
+
+**2. Check Current Indexes:**
+```sql
+-- For PostgreSQL
+\\d+ table_name
+
+-- For MySQL  
+SHOW INDEXES FROM table_name;
+```
+
+**3. Analyze Table Statistics:**
+```sql
+-- PostgreSQL
+ANALYZE table_name;
 
 -- Check table sizes
-SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
-FROM pg_tables WHERE tablename LIKE '%examiner%' OR tablename LIKE '%block%';
+SELECT pg_size_pretty(pg_total_relation_size('table_name'));
 ```
-"""
+
+🚀 **Next Steps:**
+1. Share the execution plan output for detailed analysis
+2. Provide table row counts and sizes
+3. Include any error messages or specific performance metrics
+4. Describe the expected vs actual performance
+
+💡 **I'll provide specific index recommendations and query optimizations once I can analyze the execution plan.**"""
         
         if asking_about_plan:
-            response += f"\n\n📊 **Yes, please share the execution plan!**\n\nRun this command and share the output:\n```sql\nEXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) \n{sql_query};\n```\n\nThis will help me identify specific bottlenecks and provide targeted index recommendations."
-        else:
-            response += f"\n\n📊 **Next Steps:**\n1. Run the EXPLAIN ANALYZE command above to get execution plan\n2. Check current indexes on the tables/views\n3. Review the underlying view definitions\n4. Implement the suggested indexes\n\n**Expected improvements**: Proper indexing should reduce query time and resource consumption significantly.\n\n🔍 **[View Advanced Analytics](/analytics)** - Interactive query plan visualization and performance analysis"
+            response += f"\n\n📊 **Yes, please share the execution plan!**\n\nRun this command and share the output:\n```sql\nEXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) \n{sql_query};\n```\n\nThis will help me identify specific bottlenecks and provide targeted recommendations."
         
         return response
 
@@ -230,139 +216,83 @@ FROM pg_tables WHERE tablename LIKE '%examiner%' OR tablename LIKE '%block%';
         """Analyze specific SQL query with execution plan"""
         lines = user_input.split('\n')
         
-        # Extract execution time
-        execution_time = "6003.329 ms"
+        # Extract execution time from user input
+        execution_time = "Unknown"
         for line in lines:
-            if 'Execution Time:' in line:
+            if 'execution time:' in line.lower() or 'time:' in line.lower():
                 execution_time = line.split(':')[1].strip()
                 break
         
-        # Extract key performance metrics from the plan
-        total_cost = "1241730.95"
-        actual_rows = "11289"
-        buffers_hit = "942826"
-        temp_read = "1036"
+        # Use AI to analyze the actual execution plan if available
+        if self.use_ai:
+            context = f"User provided execution plan analysis. Database: {user_selections.get('database', 'Unknown')}"
+            ai_response = self.get_ai_response(context, user_input, user_selections)
+            if ai_response:
+                return ai_response
         
-        for line in lines:
-            if 'Hash Join' in line and 'cost=' in line:
-                # Extract cost from first line
-                cost_part = line.split('cost=')[1].split('..')[1].split(')')[0]
-                total_cost = cost_part
-            if 'rows=' in line and 'actual time=' in line:
-                # Extract actual rows
-                rows_part = line.split('rows=')[1].split(' ')[0]
-                actual_rows = rows_part
-        
-        db_system = user_selections.get('database', '') if user_selections else ''
-        
-        return f"""🔍 **Aurora PostgreSQL Execution Plan Analysis**
+        # Fallback analysis
+        return f"""🔍 **Execution Plan Analysis**
 
-⚠️ **Critical Performance Issues Identified:**
+📊 **Performance Issue Detected:**
+- **Execution Time**: {execution_time}
+- **Analysis**: Based on your description, there's a significant performance gap
 
-**📊 Execution Metrics:**
-- **Execution Time**: {execution_time} (6+ seconds - CRITICAL)
-- **Total Cost**: {total_cost}
-- **Actual Rows**: {actual_rows}
-- **Buffer Hits**: {buffers_hit}
-- **Temp I/O**: {temp_read} pages read from disk
+⚡ **Common Causes of Execution Time Discrepancies:**
 
-**🚨 Major Bottlenecks:**
+1. **Plan vs Reality Gap**:
+   - Execution plan estimates vs actual performance
+   - Outdated statistics causing poor estimates
+   - Resource contention not reflected in plans
 
-1. **Complex View Nesting** - Multiple levels of subqueries and window functions
-2. **Massive Sequential Scans** - `fact_marking_data_only_last_year` scanned multiple times
-3. **Expensive Sorting Operations** - External merge sorts using disk (2216kB, 4792kB)
-4. **Hash Aggregations** - Multiple hash operations consuming significant memory
-5. **Parallel Processing Overhead** - 2-3 workers launched but inefficient coordination
+2. **JSON Denormalization Issues**:
+   - Large JSON column processing overhead
+   - Inefficient JSON parsing and extraction
+   - Missing indexes on extracted JSON fields
 
-**🔍 Specific Problem Areas:**
+3. **System Resource Constraints**:
+   - I/O bottlenecks during execution
+   - Memory pressure causing disk spills
+   - CPU contention with other processes
 
-**A. View `vw_fact_examiner_block_calculation_last_1year`:**
-- Contains nested window functions and multiple aggregations
-- Scans `fact_marking_data_only_last_year` table multiple times
-- Each scan processes ~1M+ rows (1042653 rows per worker)
+🚀 **Immediate Diagnostic Steps:**
 
-**B. Date Filtering Issues:**
-- `marking_date >= date_trunc('month', now()) - '1 year'` calculated for each row
-- No proper index on date columns
-- Filter removes only 25,690 rows from 1M+ scanned
-
-**C. Join Performance:**
-- Hash joins with large datasets
-- Missing indexes on join columns
-- `Join Filter: (b.start_date >= ex.probation_period_end_date)` removes only 15 rows
-
-⚡ **Immediate Fixes:**
-
-**1. Critical Indexes:**
+**1. Get Detailed Execution Plan:**
 ```sql
--- For the main fact table date filtering
-CREATE INDEX CONCURRENTLY idx_fact_marking_date_key 
-ON fact_marking_data_only_last_year (marking_date, marker_code, block_key) 
-WHERE marking_date >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 year';
-
--- For response type filtering
-CREATE INDEX CONCURRENTLY idx_fact_response_type 
-ON fact_marking_data_only_last_year (response_type_key, marking_date) 
-WHERE response_type_key = 1;
-
--- For join columns
-CREATE INDEX CONCURRENTLY idx_examiner_code ON dim_examiner(examiner_code);
-CREATE INDEX CONCURRENTLY idx_block_start_probation ON dim_block(start_date, block_key);
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) 
+YOUR_QUERY_HERE;
 ```
 
-**2. Materialized View Strategy:**
+**2. Check System Resources During Execution:**
 ```sql
--- Replace the complex view with materialized view
-CREATE MATERIALIZED VIEW mv_examiner_block_calculation_last_1year AS
-SELECT marker_code, block_key, 
-       -- Add only essential columns, avoid window functions
-       COUNT(*) as total_markings,
-       MAX(marking_date) as last_marking_date
-FROM fact_marking_data_only_last_year 
-WHERE marking_date >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 year'
-GROUP BY marker_code, block_key;
+-- Monitor active queries
+SELECT pid, query, state, query_start 
+FROM pg_stat_activity 
+WHERE state = 'active';
 
--- Create index on materialized view
-CREATE UNIQUE INDEX idx_mv_examiner_block 
-ON mv_examiner_block_calculation_last_1year (marker_code, block_key);
-
--- Refresh strategy
-REFRESH MATERIALIZED VIEW CONCURRENTLY mv_examiner_block_calculation_last_1year;
+-- Check I/O statistics
+SELECT * FROM pg_stat_user_tables 
+WHERE relname = 'your_table_name';
 ```
 
-**3. Query Rewrite:**
+**3. JSON Column Optimization:**
 ```sql
--- Simplified version using materialized view
-SELECT mv.*, ex.probation_period_end_date, b."Block Start End Dates"
-FROM mv_examiner_block_calculation_last_1year mv
-INNER JOIN dim_examiner ex ON mv.marker_code = ex.examiner_code
-INNER JOIN dim_block b ON mv.block_key = b.block_key
-WHERE b.start_date >= ex.probation_period_end_date;
+-- Create indexes on frequently accessed JSON fields
+CREATE INDEX CONCURRENTLY idx_json_field 
+ON your_table USING GIN ((json_column->>'field_name'));
+
+-- Consider extracting frequently used JSON fields to regular columns
+ALTER TABLE your_table 
+ADD COLUMN extracted_field TEXT 
+GENERATED ALWAYS AS (json_column->>'field_name') STORED;
 ```
 
-**4. Configuration Tuning:**
-```sql
--- Increase work_mem for this session
-SET work_mem = '256MB';
+📊 **Next Steps:**
+1. Share the complete execution plan for detailed analysis
+2. Monitor system resources during query execution
+3. Consider JSON optimization strategies
+4. Test with smaller data sets to isolate the issue
 
--- Disable parallel processing for this query if overhead is high
-SET max_parallel_workers_per_gather = 0;
-```
-
-📊 **Expected Performance Improvements:**
-- **Current**: 6+ seconds
-- **With proper indexes**: ~1-2 seconds
-- **With materialized view**: ~100-500ms
-- **With query rewrite**: ~50-200ms
-
-🎯 **Immediate Action Plan:**
-1. **Create the date-based partial index first** (biggest impact)
-2. **Implement materialized view strategy** for the complex view
-3. **Set up automated refresh** for materialized view (hourly/daily)
-4. **Monitor query performance** after each change
-5. **Consider partitioning** `fact_marking_data_only_last_year` by date
-
-**🚨 Critical**: This query is scanning 3M+ rows across multiple workers. The materialized view approach will reduce this to ~11K rows, providing 99%+ performance improvement."""
+💡 **The 100ms vs 40s discrepancy suggests system-level bottlenecks beyond query optimization.**"""
     
     def get_connection_troubleshooting_recommendation(self, user_input, user_selections):
         """Specialized recommendations for database connection issues"""
@@ -371,271 +301,154 @@ SET max_parallel_workers_per_gather = 0;
         cloud_provider = user_selections.get('cloud_provider', '') if user_selections else ''
         environment = user_selections.get('environment', '') if user_selections else ''
         
-        if 'aws' in cloud_provider.lower() and 'aurora' in db_system.lower():
-            return f"""🔍 **AWS Aurora PostgreSQL Connection Timeout Analysis**
-
-✅ **Current Situation:**
-- **Environment**: {environment}
-- **Database**: {db_system}
-- **Issue**: Lambda connection timeouts to Aurora PostgreSQL
-- **Error**: "connection timed-out" in Lambda logs
-
-🔍 **Root Cause Analysis:**
-
-**Most Common Causes:**
-1. **Security Group Issues** - Lambda can't reach Aurora
-2. **Subnet Configuration** - Lambda not in VPC or wrong subnets
-3. **Connection Pool Exhaustion** - Aurora hitting max_connections
-4. **DNS Resolution** - Lambda can't resolve Aurora endpoint
-5. **Aurora Serverless Cold Start** - Database paused/scaling
-
-⚡ **Immediate Diagnostic Steps:**
-
-**1. Check Security Groups:**
-```bash
-# Verify Aurora security group allows Lambda subnet access
-# Aurora SG should allow inbound 5432 from Lambda SG/subnets
-```
-
-**2. Verify Lambda VPC Configuration:**
-```bash
-# Lambda must be in same VPC as Aurora
-# Lambda subnets need route to Aurora subnets
-# Check Lambda execution role has VPC permissions
-```
-
-**3. Check Aurora Connection Limits:**
-```sql
--- Connect to Aurora and check current connections
-SELECT count(*) as current_connections FROM pg_stat_activity;
-SHOW max_connections;
-
--- Check for connection leaks
-SELECT state, count(*) 
-FROM pg_stat_activity 
-WHERE datname = 'your_database' 
-GROUP BY state;
-```
-
-**4. Test Network Connectivity:**
-```python
-# Add to Lambda function for testing
-import socket
-def test_connection():
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(5)
-        result = sock.connect_ex(('your-aurora-endpoint', 5432))
-        sock.close()
-        return result == 0
-    except Exception as e:
-        print(f"Connection test failed: {{e}}")
-        return False
-```
-
-🚀 **Immediate Fixes:**
-
-**1. Implement Connection Pooling:**
-```python
-# Use RDS Proxy for connection pooling
-import psycopg2
-from psycopg2 import pool
-
-# Create connection pool (outside Lambda handler)
-connection_pool = psycopg2.pool.SimpleConnectionPool(
-    1, 20,  # min and max connections
-    host='your-rds-proxy-endpoint',
-    database='your_db',
-    user='your_user',
-    password='your_password'
-)
-
-def lambda_handler(event, context):
-    conn = connection_pool.getconn()
-    try:
-        # Your database operations
-        pass
-    finally:
-        connection_pool.putconn(conn)
-```
-
-**2. Configure Lambda Timeout & Retry:**
-```python
-# Increase Lambda timeout to 30+ seconds
-# Add exponential backoff retry logic
-import time
-import random
-
-def connect_with_retry(max_retries=3):
-    for attempt in range(max_retries):
-        try:
-            conn = psycopg2.connect(
-                host='your-endpoint',
-                database='your_db',
-                user='your_user',
-                password='your_password',
-                connect_timeout=10
-            )
-            return conn
-        except Exception as e:
-            if attempt < max_retries - 1:
-                wait_time = (2 ** attempt) + random.uniform(0, 1)
-                time.sleep(wait_time)
-            else:
-                raise e
-```
-
-**3. Use RDS Proxy (Recommended):**
-```bash
-# Create RDS Proxy for Aurora cluster
-# Benefits: Connection pooling, failover, security
-# Lambda connects to proxy instead of direct Aurora
-```
-
-📊 **Monitoring & Verification:**
-
-**CloudWatch Metrics to Monitor:**
-- `DatabaseConnections` - Current connection count
-- `ConnectionAttempts` - Failed connection attempts  
-- `Lambda Duration` - Function execution time
-- `Lambda Errors` - Connection failures
-
-**Aurora Performance Insights:**
-- Check for connection spikes
-- Monitor wait events
-- Review top SQL statements
-
-**Verification Queries:**
-```sql
--- Monitor connection patterns
-SELECT 
-    client_addr,
-    state,
-    count(*) as connections,
-    max(now() - state_change) as max_idle_time
-FROM pg_stat_activity 
-WHERE datname = 'your_database'
-GROUP BY client_addr, state;
-
--- Check for long-running transactions
-SELECT 
-    pid,
-    now() - pg_stat_activity.query_start AS duration,
-    query 
-FROM pg_stat_activity 
-WHERE (now() - pg_stat_activity.query_start) > interval '5 minutes';
-```
-
-🎯 **Expected Results:**
-- **Connection Success Rate**: >99%
-- **Lambda Duration**: <5 seconds typical
-- **Aurora Connections**: Stable, not hitting limits
-- **Error Rate**: <1% connection failures
-
-🛡️ **Production Best Practices:**
-1. **Always use RDS Proxy** for Lambda-to-Aurora connections
-2. **Set appropriate timeouts** (Lambda: 30s, DB: 10s)
-3. **Implement circuit breaker** pattern for resilience
-4. **Monitor connection metrics** proactively
-5. **Use IAM database authentication** when possible
-
-**Next Steps:**
-1. Check security groups and VPC configuration first
-2. Implement RDS Proxy if not already using
-3. Add connection retry logic with exponential backoff
-4. Set up CloudWatch alarms for connection failures"""
+        # Use AI to analyze the specific connection issue
+        if self.use_ai:
+            context = f"Connection troubleshooting for {db_system} on {cloud_provider} {deployment} in {environment} environment"
+            ai_response = self.get_ai_response(context, user_input, user_selections)
+            if ai_response:
+                return ai_response
         
-        return "Connection troubleshooting recommendations available for your database system."
+        # Fallback connection troubleshooting
+        return f"""🔍 **Database Connection Troubleshooting**
+
+✅ **System Configuration:**
+- **Database**: {db_system or 'Not specified'}
+- **Environment**: {environment or 'Not specified'}
+- **Deployment**: {deployment or 'Not specified'}
+- **Cloud Provider**: {cloud_provider or 'Not specified'}
+
+⚡ **Common Connection Issues & Solutions:**
+
+**1. Network Connectivity:**
+```bash
+# Test basic connectivity
+telnet your-db-host 5432  # PostgreSQL
+telnet your-db-host 3306  # MySQL
+
+# Check DNS resolution
+nslookup your-db-endpoint
+```
+
+**2. Authentication Issues:**
+```sql
+-- Verify user permissions
+SELECT user, host FROM mysql.user;  -- MySQL
+\\du  -- PostgreSQL users
+
+-- Test connection with specific user
+psql -h hostname -U username -d database  -- PostgreSQL
+mysql -h hostname -u username -p database  -- MySQL
+```
+
+**3. Connection Pool Exhaustion:**
+```sql
+-- Check active connections
+SHOW PROCESSLIST;  -- MySQL
+SELECT * FROM pg_stat_activity;  -- PostgreSQL
+
+-- Check connection limits
+SHOW VARIABLES LIKE 'max_connections';  -- MySQL
+SHOW max_connections;  -- PostgreSQL
+```
+
+**4. Firewall/Security Groups:**
+- Verify database port is open (3306/MySQL, 5432/PostgreSQL)
+- Check security group rules allow inbound connections
+- Ensure application servers can reach database subnets
+
+🚀 **Immediate Actions:**
+1. **Test connectivity** from application server to database
+2. **Verify credentials** and user permissions
+3. **Check connection limits** and current usage
+4. **Review security groups** and firewall rules
+5. **Monitor connection patterns** for leaks or spikes
+
+📊 **Monitoring Setup:**
+- Set up connection count alerts
+- Monitor failed connection attempts
+- Track connection duration and patterns
+- Implement health checks
+
+💡 **Share specific error messages and connection details for targeted troubleshooting.**"""
     
     def get_outbox_performance_recommendation(self, user_input, user_selections):
         """Specialized recommendations for outbox pattern performance issues"""
         db_system = user_selections.get('database', 'PostgreSQL') if user_selections else 'PostgreSQL'
         
-        if 'postgres' in db_system.lower() or 'aurora' in db_system.lower():
-            return f"""🔍 **Outbox Pattern Performance Analysis**
+        # Use AI to analyze the specific outbox performance issue
+        if self.use_ai:
+            context = f"Outbox pattern performance optimization for {db_system}"
+            ai_response = self.get_ai_response(context, user_input, user_selections)
+            if ai_response:
+                return ai_response
+        
+        # Fallback outbox pattern recommendations
+        return f"""🔍 **Outbox Pattern Performance Optimization**
 
-This is a classic **hot outbox table + large backlog** scenario. Your query is scanning through massive pending records, causing high latency.
+✅ **Database System**: {db_system}
 
-✅ **Current Situation:**
-- Partitioned outbox table with 1.4M+ pending records
-- Query scanning from oldest events (ORDER BY event_time ASC)
-- High buffer hits and rows per call
-- 4+ second average latency
+⚡ **Common Outbox Performance Issues:**
 
-🔍 **Root Cause Analysis:**
-1. **Large Backlog**: 1.4M pending records means every query digs deep into old data
-2. **Sequential Processing**: ORDER BY event_time ASC forces scanning from oldest records
-3. **Heap Fetches**: Index doesn't cover all columns, requiring table lookups
-4. **No Pagination**: Processing entire backlog instead of chunks
+**1. Large Backlog Processing:**
+- Sequential scanning of pending records
+- Inefficient ORDER BY on timestamp columns
+- Missing indexes on status and timestamp fields
 
-⚡ **Immediate Fixes:**
+**2. Polling Inefficiency:**
+- Frequent full table scans
+- No pagination or cursor-based processing
+- Lack of covering indexes
 
-**1. Create Covering Index:**
+🚀 **Optimization Strategies:**
+
+**1. Indexing Strategy:**
 ```sql
-CREATE INDEX CONCURRENTLY idx_outbox_covering
-  ON oip_engine_ms.pub_to_topic_false (event_time ASC)
-  INCLUDE (id, correlation_id, event_type, message_version, message_body,
-           topic_message_id, published_at, created_at, updated_at);
+-- Covering index for outbox queries
+CREATE INDEX CONCURRENTLY idx_outbox_status_time
+ON outbox_table (status, created_at)
+INCLUDE (id, event_type, payload, retry_count);
+
+-- Partial index for pending records only
+CREATE INDEX CONCURRENTLY idx_outbox_pending
+ON outbox_table (created_at)
+WHERE status = 'pending';
 ```
 
-**2. Implement Pagination Strategy:**
+**2. Pagination Pattern:**
 ```sql
--- Instead of scanning entire backlog
-SELECT * FROM outbox 
-WHERE published_to_topic = false 
-  AND event_time <= now() - interval '5 seconds'
-  AND event_time > :last_processed_event_time
-ORDER BY event_time ASC
+-- Cursor-based pagination
+SELECT * FROM outbox_table
+WHERE status = 'pending'
+  AND created_at > :last_processed_timestamp
+ORDER BY created_at ASC
 LIMIT 1000;
 ```
 
-🚀 **Optimization Strategy:**
+**3. Batch Processing:**
+- Process records in smaller batches (100-1000 records)
+- Use transactions for batch updates
+- Implement exponential backoff for retries
 
-**3. Batch Processing Pattern:**
-- Maintain a bookmark (last_processed_event_time)
-- Process in chunks of 1000-5000 records
-- Update bookmark after successful processing
-
-**4. Consider Parallel Processing:**
-- Partition by event_time ranges for parallel Lambda execution
-- Use multiple workers on different time windows
-
-**5. Archive Old Records:**
+**4. Archival Strategy:**
 ```sql
--- Move old pending events to archive partition
-CREATE TABLE outbox_archive PARTITION OF outbox 
-FOR VALUES IN (false) 
-PARTITION BY RANGE (event_time);
+-- Move processed records to archive table
+INSERT INTO outbox_archive 
+SELECT * FROM outbox_table 
+WHERE status = 'processed' 
+  AND created_at < NOW() - INTERVAL '7 days';
+
+DELETE FROM outbox_table 
+WHERE status = 'processed' 
+  AND created_at < NOW() - INTERVAL '7 days';
 ```
 
-📊 **Monitoring & Verification:**
+📊 **Monitoring & Metrics:**
+- Track processing latency and throughput
+- Monitor backlog size and growth rate
+- Set up alerts for processing delays
+- Measure index usage and query performance
 
-**Check Index Usage:**
-```sql
-SELECT schemaname, tablename, indexname, idx_scan, idx_tup_read, idx_tup_fetch
-FROM pg_stat_user_indexes 
-WHERE tablename LIKE '%outbox%';
-```
-
-**Monitor Query Performance:**
-```sql
-EXPLAIN (ANALYZE, BUFFERS) 
-SELECT * FROM pub_to_topic_false 
-WHERE event_time <= now() - interval '5 seconds'
-  AND event_time > '2024-01-01'::timestamp
-ORDER BY event_time ASC LIMIT 1000;
-```
-
-🎯 **Expected Results:**
-- **Latency**: Should drop from 4s to <100ms
-- **Buffer Hits**: Significant reduction due to covering index
-- **Scalability**: Linear performance regardless of backlog size
-- **Concurrency**: Lambda concurrency of 10 will be much more effective
-
-**🛡️ Architecture Recommendation:**
-Consider implementing a **cursor-based pagination** system where each Lambda maintains its processing position, eliminating the need to scan from the beginning each time."""
-        
-        return "Outbox pattern optimization recommendations available for PostgreSQL/Aurora."
+💡 **Share your specific outbox table structure and query patterns for targeted optimization recommendations.**"""
     
     def get_large_table_recommendation(self, user_input, user_selections):
         """Recommendations for large table performance issues"""

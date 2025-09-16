@@ -10,4 +10,4 @@ anthropic>=0.3.0
 psycopg2-binary>=2.9.0
 pymysql>=1.1.0
 streamlit>=1.28.0
-rich>=10.14.0,<14
+rich==13.9.4
