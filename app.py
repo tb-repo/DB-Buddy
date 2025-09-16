@@ -2140,11 +2140,6 @@ Share specific queries, execution times, or performance metrics for detailed ana
         
         return f"Security recommendations for {db_system}:\n" + "\n".join(recommendations) + f"\n\nCompliance: {compliance}\nUser management: {user_mgmt}\n\nBest practices: Regular security audits, automated backup testing, patch management, and incident response planning.\nRecommendation: Work with security team for compliance requirements."
 
-# Add methods to DBBuddy class
-DBBuddy.get_natural_language_sql_response = get_natural_language_sql_response
-DBBuddy.get_ai_client = get_ai_client
-DBBuddy.contains_sql_query = contains_sql_query
-
 db_buddy = DBBuddy()
 
 @app.route('/')
@@ -2288,25 +2283,25 @@ def get_dashboard_metrics():
     }
     return jsonify(metrics)
 
-def get_natural_language_sql_response(self, user_input, user_selections):
-    """Handle natural language to SQL conversion"""
-    try:
-        # Initialize AI client for the NL-to-SQL tool
-        self.nl_sql_tool.ai_client = self.get_ai_client()
+    def get_natural_language_sql_response(self, user_input, user_selections):
+        """Handle natural language to SQL conversion"""
+        try:
+            # Initialize AI client for the NL-to-SQL tool
+            self.nl_sql_tool.ai_client = self.get_ai_client()
+            
+            # For demo, use sample database config
+            sample_db_config = {
+                'type': 'postgresql',
+                'host': 'localhost',
+                'database': 'sample_db',
+                'user': 'demo_user',
+                'password': 'demo_pass'
+            }
+            
+            result = self.nl_sql_tool.process_natural_query(user_input, sample_db_config)
         
-        # For demo, use sample database config
-        sample_db_config = {
-            'type': 'postgresql',
-            'host': 'localhost',
-            'database': 'sample_db',
-            'user': 'demo_user',
-            'password': 'demo_pass'
-        }
-        
-        result = self.nl_sql_tool.process_natural_query(user_input, sample_db_config)
-        
-        if 'error' in result:
-            return f"""🤖 **Natural Language SQL Generator**
+            if 'error' in result:
+                return f"""🤖 **Natural Language SQL Generator**
 
 ❌ **Error**: {result['error']}
 
@@ -2321,8 +2316,8 @@ def get_natural_language_sql_response(self, user_input, user_selections):
 • "Get the average order value by customer segment"
 
 💡 *This feature requires database connection details for schema analysis and query execution.*"""
-        
-        response = f"""🤖 **Natural Language SQL Generator**
+            
+            response = f"""🤖 **Natural Language SQL Generator**
 
 ✅ **Your Request**: {result['natural_query']}
 
@@ -2339,16 +2334,16 @@ def get_natural_language_sql_response(self, user_input, user_selections):
 
 """
         
-        if result['execution_result'].get('success'):
-            if result['execution_result'].get('data'):
-                response += f"**Results**: Found {result['execution_result']['row_count']} rows\n"
-                response += f"**Columns**: {', '.join(result['execution_result']['columns'])}\n\n"
+            if result['execution_result'].get('success'):
+                if result['execution_result'].get('data'):
+                    response += f"**Results**: Found {result['execution_result']['row_count']} rows\n"
+                    response += f"**Columns**: {', '.join(result['execution_result']['columns'])}\n\n"
+                else:
+                    response += f"**Result**: {result['execution_result'].get('message', 'Query executed successfully')}\n\n"
             else:
-                response += f"**Result**: {result['execution_result'].get('message', 'Query executed successfully')}\n\n"
-        else:
-            response += f"**Execution Error**: {result['execution_result'].get('error', 'Unknown error')}\n\n"
+                response += f"**Execution Error**: {result['execution_result'].get('error', 'Unknown error')}\n\n"
         
-        response += """**🔧 Features:**
+            response += """**🔧 Features:**
 • **Auto Schema Discovery**: Automatically understands your database structure
 • **Smart Query Generation**: Converts natural language to optimized SQL
 • **Safe Execution**: Read-only queries with built-in security checks
@@ -2359,10 +2354,10 @@ def get_natural_language_sql_response(self, user_input, user_selections):
 2. Try more complex queries with joins and aggregations
 3. Use the generated SQL as a starting point for optimization"""
         
-        return response
-        
-    except Exception as e:
-        return f"""🤖 **Natural Language SQL Generator**
+            return response
+            
+        except Exception as e:
+            return f"""🤖 **Natural Language SQL Generator**
 
 ❌ **Error**: {str(e)}
 
@@ -2378,64 +2373,64 @@ def get_natural_language_sql_response(self, user_input, user_selections):
 
 💡 *Connect your database to start using this feature.*"""
 
-def get_ai_client(self):
-    """Get appropriate AI client for NL-to-SQL processing"""
-    if self.use_ai == 'groq':
-        # Return a mock client that works with our existing Groq setup
-        class MockGroqClient:
-            def __init__(self):
-                pass
-                
-            @property
-            def messages(self):
-                return self
-                
-            def create(self, model, max_tokens, messages):
-                # Use existing Groq response method
-                import os
-                import requests
-                
-                try:
-                    headers = {
-                        'Authorization': f'Bearer {os.getenv("GROQ_API_KEY")}',
-                        'Content-Type': 'application/json'
-                    }
-                    
-                    payload = {
-                        'model': 'llama3-8b-8192',
-                        'messages': messages,
-                        'temperature': 0.1,
-                        'max_tokens': max_tokens
-                    }
-                    
-                    response = requests.post(
-                        'https://api.groq.com/openai/v1/chat/completions',
-                        headers=headers,
-                        json=payload,
-                        timeout=30
-                    )
-                    
-                    if response.status_code == 200:
-                        result = response.json()
-                        # Mock the expected response structure
-                        class MockResponse:
-                            def __init__(self, content):
-                                self.content = [type('obj', (object,), {'text': content})()]
-                        
-                        return MockResponse(result['choices'][0]['message']['content'].strip())
-                except:
+    def get_ai_client(self):
+        """Get appropriate AI client for NL-to-SQL processing"""
+        if self.use_ai == 'groq':
+            # Return a mock client that works with our existing Groq setup
+            class MockGroqClient:
+                def __init__(self):
                     pass
-                
-                return None
+                    
+                @property
+                def messages(self):
+                    return self
+                    
+                def create(self, model, max_tokens, messages):
+                    # Use existing Groq response method
+                    import os
+                    import requests
+                    
+                    try:
+                        headers = {
+                            'Authorization': f'Bearer {os.getenv("GROQ_API_KEY")}',
+                            'Content-Type': 'application/json'
+                        }
+                        
+                        payload = {
+                            'model': 'llama3-8b-8192',
+                            'messages': messages,
+                            'temperature': 0.1,
+                            'max_tokens': max_tokens
+                        }
+                        
+                        response = requests.post(
+                            'https://api.groq.com/openai/v1/chat/completions',
+                            headers=headers,
+                            json=payload,
+                            timeout=30
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            # Mock the expected response structure
+                            class MockResponse:
+                                def __init__(self, content):
+                                    self.content = [type('obj', (object,), {'text': content})()]
+                            
+                            return MockResponse(result['choices'][0]['message']['content'].strip())
+                    except:
+                        pass
+                    
+                    return None
+            
+            return MockGroqClient()
         
-        return MockGroqClient()
-    
-    return None
+        return None
 
-def contains_sql_query(self, text):
-    """Check if text contains SQL query"""
-    sql_keywords = ['select', 'insert', 'update', 'delete', 'create', 'alter', 'drop']
-    return any(keyword in text.lower() for keyword in sql_keywords)
+    def contains_sql_query(self, text):
+        """Check if text contains SQL query"""
+        sql_keywords = ['select', 'insert', 'update', 'delete', 'create', 'alter', 'drop']
+        return any(keyword in text.lower() for keyword in sql_keywords)
 
 @app.route('/api/nl-sql', methods=['POST'])
 def natural_language_sql():
