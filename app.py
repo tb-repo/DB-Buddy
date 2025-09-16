@@ -2139,6 +2139,11 @@ Share specific queries, execution times, or performance metrics for detailed ana
         recommendations.extend(["• Regular security assessments", "• Backup encryption and testing", "• Database version security updates"])
         
         return f"Security recommendations for {db_system}:\n" + "\n".join(recommendations) + f"\n\nCompliance: {compliance}\nUser management: {user_mgmt}\n\nBest practices: Regular security audits, automated backup testing, patch management, and incident response planning.\nRecommendation: Work with security team for compliance requirements."
+    
+    def contains_sql_query(self, text):
+        """Check if text contains SQL query"""
+        sql_keywords = ['select', 'insert', 'update', 'delete', 'create', 'alter', 'drop']
+        return any(keyword in text.lower() for keyword in sql_keywords)
 
 db_buddy = DBBuddy()
 
