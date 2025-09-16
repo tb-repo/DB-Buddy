@@ -7,6 +7,7 @@ from memory import ConversationMemory
 from pdf_generator import PDFReportGenerator
 from image_processor import ImageProcessor
 from advanced_analytics import AdvancedAnalytics
+from intelligent_enhancements import IntelligentEnhancements
 import base64
 
 # Load environment variables
@@ -23,6 +24,7 @@ class DBBuddy:
         self.pdf_generator = PDFReportGenerator()
         self.image_processor = ImageProcessor()
         self.analytics = AdvancedAnalytics()
+        self.intelligence = IntelligentEnhancements()
         # Remove predefined question flows - use intelligent conversation instead
         self.service_descriptions = {
             'troubleshooting': 'database troubleshooting and error resolution',
@@ -678,94 +680,133 @@ Consider implementing a **cursor-based pagination** system where each Lambda mai
         if not self.use_ai:
             return None
         
-        # Build enhanced context with user selections and technical details
-        enhanced_context = context
+        # Advanced context analysis using intelligence enhancements
+        analysis = self.intelligence.analyze_context_depth(user_input, user_selections, context)
+        
+        # Build intelligent context with relevance scoring
+        enhanced_context = self.build_intelligent_context(context, user_selections, analysis)
+        
+        # Create adaptive system prompt based on context analysis
+        system_prompt = self.create_adaptive_system_prompt(analysis, user_selections)
+        
+        # Get AI response with quality validation
+        response = self.get_validated_ai_response(system_prompt, enhanced_context, user_input, analysis)
+        
+        if response:
+            # Post-process response for accuracy and completeness
+            return self.intelligence.enhance_response_quality(response, analysis, user_selections)
+        
+        # Intelligent fallback with context awareness
+        return self.intelligence.get_intelligent_fallback(user_input, user_selections, analysis)
+    
+    def build_intelligent_context(self, base_context, user_selections, analysis):
+        """Build enhanced context based on analysis"""
+        context = f"{base_context}\n\nINTELLIGENT CONTEXT ANALYSIS:\n"
+        context += f"- Technical Depth: {analysis['technical_depth']}\n"
+        context += f"- Urgency Level: {analysis['urgency_level']}\n"
+        context += f"- Specificity Score: {analysis['specificity_score']}/100\n"
+        context += f"- Domain Expertise: {', '.join(analysis['domain_expertise']) if analysis['domain_expertise'] else 'General'}\n"
+        context += f"- Response Type Needed: {analysis['response_type_needed']}\n"
+        
+        if analysis['key_entities']:
+            context += f"- Key Entities: {', '.join(analysis['key_entities'])}\n"
+        
+        if analysis['performance_indicators']:
+            context += f"- Performance Indicators: {', '.join(analysis['performance_indicators'])}\n"
+        
+        # Add deployment-specific context
         if user_selections:
-            selection_context = "\n\nUser's System Configuration:\n"
-            if user_selections.get('deployment'):
-                selection_context += f"• Deployment: {user_selections['deployment']}\n"
-            if user_selections.get('cloud_provider'):
-                selection_context += f"• Cloud Provider: {user_selections['cloud_provider']}\n"
-            if user_selections.get('database'):
-                selection_context += f"• Database System: {user_selections['database']}\n"
-            if user_selections.get('environment'):
-                selection_context += f"• Environment: {user_selections['environment']}\n"
-            if user_selections.get('issue_type'):
-                selection_context += f"• Issue Type: {user_selections['issue_type']}\n"
-            enhanced_context += selection_context
+            context += self.intelligence.get_deployment_context(user_selections)
         
-        # Add conversation context for natural responses
-        enhanced_context += "\n\nUser's current message: " + user_input + "\n"
-        enhanced_context += "Respond naturally and conversationally to their specific situation. Provide technical depth when appropriate, but keep the tone friendly and professional.\n"
+        return context
+    
+    def create_adaptive_system_prompt(self, analysis, user_selections):
+        """Create system prompt adapted to user's context and needs"""
+        base_prompt = "You are DB-Buddy, a senior database expert with deep technical knowledge."
         
-        # Build cloud-specific guidance with detailed technical recommendations
-        cloud_guidance = ""
-        if user_selections and user_selections.get('deployment') == 'Cloud':
-            cloud_provider = user_selections.get('cloud_provider', '')
-            db_system = user_selections.get('database', '')
-            
-            if 'AWS' in cloud_provider:
-                if 'Aurora' in db_system:
-                    cloud_guidance = "\n\nAWS AURORA SPECIFIC GUIDANCE:\n- Use DB Parameter Groups (not ALTER SYSTEM) for configuration changes\n- Monitor via CloudWatch metrics and Performance Insights\n- Use Aurora-specific features like Global Database, Backtrack, Serverless\n- Consider Aurora Auto Scaling for read replicas\n- Use RDS Proxy for connection pooling\n- Leverage Aurora's distributed storage for better I/O performance\n- Use Aurora Performance Insights for query-level analysis\n- Consider Aurora Serverless v2 for variable workloads\n"
-                elif 'RDS' in db_system:
-                    cloud_guidance = "\n\nAWS RDS SPECIFIC GUIDANCE:\n- Use DB Parameter Groups for configuration changes\n- Monitor via CloudWatch and Enhanced Monitoring\n- Use Read Replicas for scaling reads\n- Consider Multi-AZ for high availability\n- Use RDS Proxy for connection management\n- Implement automated backups and point-in-time recovery\n- Use RDS Performance Insights for detailed query analysis\n"
-            elif 'Azure' in cloud_provider:
-                cloud_guidance = "\n\nAZURE DATABASE SPECIFIC GUIDANCE:\n- Use Azure Database configuration settings (not direct SQL commands)\n- Monitor via Azure Monitor and Query Performance Insight\n- Use Read Replicas and Hyperscale for scaling\n- Consider Azure SQL Database Serverless\n- Use connection pooling via application or Azure SQL Database\n- Leverage Intelligent Performance features for automatic tuning\n- Use Query Store for historical performance analysis\n"
-            elif 'GCP' in cloud_provider:
-                cloud_guidance = "\n\nGCP CLOUD SQL SPECIFIC GUIDANCE:\n- Use Cloud SQL configuration flags (not ALTER SYSTEM)\n- Monitor via Cloud Monitoring and Query Insights\n- Use Read Replicas for read scaling\n- Consider Cloud SQL Proxy for secure connections\n- Use connection pooling at application level\n- Leverage automatic storage increases and performance scaling\n- Use Query Insights for performance monitoring and optimization\n"
+        # Adapt based on technical depth
+        if analysis['technical_depth'] == 'expert':
+            expertise_guidance = "\nUser is highly technical. Provide advanced technical details, specific commands, and in-depth analysis. Use technical terminology appropriately."
+        elif analysis['technical_depth'] == 'intermediate':
+            expertise_guidance = "\nUser has good technical knowledge. Provide detailed explanations with some technical depth, but explain complex concepts clearly."
+        else:
+            expertise_guidance = "\nUser may be less technical. Provide clear, step-by-step explanations with context for technical terms. Focus on practical solutions."
         
-        system_prompt = f"""You are DB-Buddy, a senior database performance specialist. You MUST analyze the specific SQL queries, execution plans, and technical details provided by users. Never give generic responses.
-
-CRITICAL INSTRUCTIONS:
-- If a user provides a SQL query, analyze THAT EXACT query
-- If they share an execution plan, interpret THOSE SPECIFIC metrics
-- If they mention table sizes, constraints, or schema details, use THAT INFORMATION
-- Never respond with generic advice when specific technical details are provided
-
-SQL QUERY ANALYSIS PROCESS:
-1. **Parse the actual SQL statement** - identify tables, columns, WHERE conditions, JOINs
-2. **Analyze the execution plan** - look for table scans, index usage, cost estimates, actual times
-3. **Identify performance bottlenecks** - high costs, long execution times, inefficient operations
-4. **Recommend specific indexes** - based on WHERE clauses, ORDER BY, and SELECT columns
-5. **Provide exact DDL statements** - CREATE INDEX commands with proper syntax
-
-EXECUTION PLAN INTERPRETATION:
-- **Seq Scan / Table Scan**: Missing indexes, recommend specific index creation
-- **Bitmap Heap Scan**: Analyze filter conditions, suggest composite indexes
-- **High cost values**: Identify expensive operations, recommend optimizations
-- **Rows Removed by Filter**: Suggest better indexing strategies
-- **Long execution times**: Provide immediate and long-term solutions
-
-WHEN USER PROVIDES SPECIFIC QUERY:
-- Quote their exact table names and column names in your response
-- Reference their specific WHERE conditions
-- Analyze their actual execution plan metrics
-- Provide CREATE INDEX statements using their exact schema and table names
-- Calculate expected performance improvements based on their data
-
-FORBIDDEN RESPONSES:
-- "I see you have a SQL query" (analyze the actual query instead)
-- "Please share your query" (when they already shared it)
-- Generic index advice (provide specific recommendations for their query)
-- Template responses (respond to their specific situation)
-
-Database-specific expertise:
-- **PostgreSQL/Aurora PostgreSQL**: EXPLAIN ANALYZE, pg_stat_*, vacuum strategies, partitioning, connection pooling
-- **MySQL/Aurora MySQL**: EXPLAIN FORMAT=JSON, SHOW ENGINE INNODB STATUS, query cache, buffer pool tuning
-- **SQL Server**: SET STATISTICS IO/TIME, DMVs, index maintenance, query store
-- **Oracle**: EXPLAIN PLAN, AWR reports, CBO statistics, partitioning strategies{cloud_guidance}
-
-You MUST provide specific, actionable analysis of the user's actual query and execution plan. No generic responses allowed."""
+        # Adapt based on urgency
+        if analysis['urgency_level'] in ['critical', 'high']:
+            urgency_guidance = "\nHIGH PRIORITY: This appears to be an urgent issue. Prioritize immediate actionable solutions and troubleshooting steps. Provide quick wins first, then comprehensive analysis."
+        else:
+            urgency_guidance = "\nProvide comprehensive analysis and long-term optimization strategies along with immediate solutions."
+        
+        # Adapt based on specificity
+        if analysis['specificity_score'] > 70:
+            specificity_guidance = "\nUser provided specific details. Analyze their exact situation and provide targeted recommendations using their specific table names, queries, and metrics."
+        else:
+            specificity_guidance = "\nUser provided general information. Ask clarifying questions if needed, but provide actionable guidance based on available information."
+        
+        # Domain-specific guidance
+        domain_guidance = ""
+        if 'query_optimization' in analysis['domain_expertise']:
+            domain_guidance += "\nFocus on SQL query analysis, execution plans, indexing strategies, and performance optimization."
+        if 'troubleshooting' in analysis['domain_expertise']:
+            domain_guidance += "\nProvide systematic troubleshooting approaches, diagnostic queries, and root cause analysis."
+        
+        return f"{base_prompt}{expertise_guidance}{urgency_guidance}{specificity_guidance}{domain_guidance}\n\nAlways provide specific, actionable recommendations with exact commands when possible."
+    
+    def get_validated_ai_response(self, system_prompt, context, user_input, analysis):
+        """Get AI response with quality validation"""
+        # Try primary AI provider with enhanced parameters
+        response = None
         
         if self.use_ai == 'groq':
-            return self.get_groq_response(system_prompt, enhanced_context, user_input)
+            response = self.get_groq_response_enhanced(system_prompt, context, user_input, analysis)
         elif self.use_ai == 'huggingface':
-            return self.get_huggingface_response(system_prompt, enhanced_context, user_input)
+            response = self.get_huggingface_response(system_prompt, context, user_input)
         elif self.use_ai == 'ollama':
-            return self.get_ollama_response(system_prompt, enhanced_context, user_input)
+            response = self.get_ollama_response(system_prompt, context, user_input)
         
-        # Fallback to rule-based recommendations if AI is not available
-        return self.get_fallback_recommendation(user_input, user_selections)
+        # Validate response quality
+        if response and self.intelligence.validate_response_quality(response, analysis):
+            return response
+        
+        return None
+    
+    def get_groq_response_enhanced(self, system_prompt, context, user_input, analysis):
+        """Enhanced Groq response with better parameters based on analysis"""
+        try:
+            headers = {
+                'Authorization': f'Bearer {os.getenv("GROQ_API_KEY")}',
+                'Content-Type': 'application/json'
+            }
+            
+            # Adjust parameters based on analysis
+            max_tokens = 1200 if analysis['specificity_score'] > 70 else 800
+            temperature = 0.05 if analysis['urgency_level'] in ['critical', 'high'] else 0.1
+            
+            payload = {
+                'model': 'llama3-8b-8192',
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': f"Context: {context}\n\nUser Request: {user_input}\n\nProvide specific, actionable database recommendations."}
+                ],
+                'temperature': temperature,
+                'max_tokens': max_tokens,
+                'top_p': 0.9
+            }
+            
+            response = requests.post(
+                'https://api.groq.com/openai/v1/chat/completions',
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result['choices'][0]['message']['content'].strip()
+        except Exception as e:
+            print(f"Enhanced Groq API error: {e}")
+        return None
     
     def get_fallback_recommendation(self, user_input, user_selections):
         """Provide rule-based recommendations when AI is not available"""
