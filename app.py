@@ -1541,6 +1541,11 @@ I'll help you implement comprehensive database security and meet compliance requ
             return 'intermediate'
         return 'beginner'
     
+    def contains_sql_query(self, text):
+        """Check if text contains SQL query"""
+        sql_keywords = ['select', 'insert', 'update', 'delete', 'create', 'alter', 'drop']
+        return any(keyword in text.lower() for keyword in sql_keywords)
+    
     def get_intelligent_troubleshooting_response(self, user_input, context, analysis, user_selections):
         """Generate intelligent troubleshooting responses"""
         categories = analysis['detected_categories']
