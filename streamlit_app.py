@@ -652,27 +652,6 @@ connection_pool = psycopg2.pool.SimpleConnectionPool(
     
     def get_welcome_message(self, service_type):
         """Generate intelligent welcome message based on service type"""
-        service_desc = self.service_descriptions.get(service_type, 'database assistance')
-        
-        welcome_prompt = f"""You are DB-Buddy, a senior database expert. A user just selected {service_desc} assistance. 
-        
-Generate a warm, professional welcome message that:
-1. Welcomes them to the specific service
-2. Briefly explains what you can help with
-3. Asks them to describe their situation in their own words
-4. Mentions they can use the dropdowns above for system details
-
-Keep it conversational and encouraging. No bullet points or rigid structure."""
-        
-        # Get AI-generated welcome message
-        if self.use_ai:
-            try:
-                ai_welcome = self.get_ai_response_with_context("", welcome_prompt, {})
-                if ai_welcome:
-                    return ai_welcome
-            except:
-                pass
-        
         # Fallback welcome messages
         fallback_messages = {
             'troubleshooting': "👋 Hi! I'm here to help you troubleshoot database issues. What problem are you experiencing? Feel free to describe it in your own words - I'll understand and provide targeted solutions.",
