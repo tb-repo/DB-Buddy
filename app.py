@@ -581,11 +581,6 @@ WHERE status = 'processed'
 - Partial indexes reduce index size and maintenance cost"""
     
     def get_ai_response(self, context, user_input, user_selections=None):
-        # First check for specialized recommendations
-        specialized = self.get_specialized_recommendation(user_input, user_selections)
-        if specialized:
-            return specialized
-            
         if not self.use_ai:
             return None
         
