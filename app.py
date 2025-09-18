@@ -504,7 +504,18 @@ WHERE status = 'processed'
     
     def create_adaptive_system_prompt(self, analysis, user_selections):
         """Create system prompt adapted to user's context and needs"""
-        base_prompt = "You are DB-Buddy, a senior database expert with deep technical knowledge."
+        base_prompt = """You are DB-Buddy, a specialized database expert assistant. You ONLY help with database-related topics including:
+- Database troubleshooting and performance issues
+- SQL query optimization and analysis
+- Database architecture and design
+- Capacity planning and sizing
+- Database security and compliance
+- Database administration tasks
+
+IMPORTANT: If a user asks about non-database topics (movies, entertainment, general knowledge, etc.), politely redirect them:
+"I'm DB-Buddy, your specialized database assistant. I can only help with database-related questions like SQL optimization, performance tuning, troubleshooting, architecture design, and database administration. Please ask me about your database needs!"
+
+For database-related questions, provide expert technical guidance."""
         
         # Adapt based on technical depth
         if analysis['technical_depth'] == 'expert':
@@ -1091,6 +1102,10 @@ I'll help you implement comprehensive database security and meet compliance requ
         service_type = conversation.get('type', 'general')
         user_selections = conversation.get('user_selections', {})
         conversation_history = conversation.get('answers', [])
+        
+        # First check if the query is database-related
+        if not self.is_database_related_query(user_input):
+            return self.get_non_database_response()
         
         # Comprehensive analysis of user input
         analysis = self.analyze_user_input_comprehensive(user_input, user_selections, service_type)
@@ -1979,7 +1994,12 @@ I'll help you implement comprehensive database security measures.
         urgency = analysis['technical_details']['urgency']
         service_type = analysis['service_type']
         
-        system_prompt = f"""You are DB-Buddy, an expert database consultant with deep expertise in {service_type}.
+        system_prompt = f"""You are DB-Buddy, a specialized database expert consultant with deep expertise in {service_type}.
+
+IMPORTANT: You ONLY help with database-related topics. If the user asks about non-database topics (movies, entertainment, general knowledge, etc.), respond with:
+"I'm DB-Buddy, your specialized database assistant. I can only help with database-related questions like SQL optimization, performance tuning, troubleshooting, architecture design, and database administration. Please ask me about your database needs!"
+
+For database-related questions:
 
 User Profile:
 - Expertise Level: {expertise_level}
@@ -2009,8 +2029,72 @@ Provide expert recommendations tailored to their needs and expertise level."""
         
         return None
     
+    def is_database_related_query(self, user_input):
+        """Check if the user query is database-related"""
+        user_lower = user_input.lower()
+        
+        # Database-related keywords
+        db_keywords = [
+            'database', 'sql', 'query', 'table', 'index', 'performance', 'optimization',
+            'postgresql', 'mysql', 'oracle', 'mongodb', 'sqlite', 'mariadb',
+            'select', 'insert', 'update', 'delete', 'create', 'alter', 'drop',
+            'join', 'where', 'group by', 'order by', 'having', 'union',
+            'backup', 'restore', 'replication', 'partition', 'schema', 'migration',
+            'connection', 'timeout', 'deadlock', 'transaction', 'commit', 'rollback',
+            'cpu usage', 'memory usage', 'disk space', 'slow query', 'execution plan',
+            'dba', 'database administrator', 'db', 'rds', 'aurora', 'cosmos',
+            'capacity planning', 'sizing', 'scaling', 'sharding', 'clustering'
+        ]
+        
+        # Check if any database keywords are present
+        return any(keyword in user_lower for keyword in db_keywords)
+    
+    def get_non_database_response(self):
+        """Response for non-database related queries"""
+        return """🤖 **DB-Buddy - Database Specialist**
+
+I'm DB-Buddy, your specialized database assistant. I can only help with database-related questions such as:
+
+**🔧 Database Troubleshooting:**
+• Connection issues and timeouts
+• Error diagnosis and resolution
+• Performance problems
+• System crashes and recovery
+
+**⚡ SQL Query Optimization:**
+• Slow query analysis and tuning
+• Index recommendations
+• Execution plan optimization
+• Query rewriting strategies
+
+**🏗️ Database Architecture:**
+• Schema design and normalization
+• Scaling and partitioning strategies
+• High availability and disaster recovery
+• Migration planning
+
+**📊 Performance & Capacity:**
+• Resource utilization analysis
+• Capacity planning and sizing
+• Monitoring and alerting setup
+• Cost optimization
+
+**🔐 Database Security:**
+• Access control and permissions
+• Encryption and compliance
+• Audit logging and monitoring
+• Security best practices
+
+**Please ask me about your database needs!** I'm here to help with SQL queries, performance issues, architecture design, troubleshooting, and all database-related challenges.
+
+💡 *Example: "My PostgreSQL query is running slow" or "Help me optimize this SQL query"*"""
+    
     def get_enhanced_fallback(self, service_type, user_input, user_selections, analysis):
         """Enhanced fallback responses with context awareness"""
+        # First check if the query is database-related
+        if not self.is_database_related_query(user_input):
+            return self.get_non_database_response()
+        
         expertise = analysis['user_expertise']
         urgency = analysis['technical_details']['urgency']
         
