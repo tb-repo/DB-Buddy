@@ -160,7 +160,16 @@ class StreamlitDBBuddy:
         # Build deployment-specific guidance
         deployment_guidance = self.get_deployment_specific_guidance(user_selections)
         
-        system_prompt = f"""You are DB-Buddy, a senior database expert. Analyze specific technical details and provide actionable recommendations.
+        system_prompt = f"""You are DB-Buddy, the official DBM team ChatOps assistant for L1/L2 database operations.
+
+OPERATIONAL SCOPE:
+- L1/L2 database operations support only
+- Provide accurate, professional responses for database issues
+- Escalate complex issues to DBM team when appropriate
+- Maintain enterprise-grade accuracy and reliability
+
+IMPORTANT: You ONLY help with database-related topics. If a user asks about non-database topics, respond with:
+"This is the official DBM ChatOps tool for database operations only. Please provide database-related requests."
 
 CONTEXT AWARENESS:
 - Maintain conversation continuity using provided history
@@ -173,6 +182,7 @@ RESPONSE QUALITY:
 - Include exact commands and configurations
 - Reference user's specific table names, queries, and metrics
 - Avoid generic advice when specific details are provided
+- Always indicate when escalation to DBM team is recommended
 
 TECHNICAL EXPERTISE:
 - SQL query analysis with execution plans
@@ -382,43 +392,42 @@ Deliver comprehensive, contextual responses that build upon the conversation his
     
     def get_non_database_response(self):
         """Response for non-database related queries"""
-        return """🤖 **DB-Buddy - Database Specialist**
+        return """🏢 **DB-Buddy - Official DBM ChatOps**
 
-I'm DB-Buddy, your specialized database assistant. I can only help with database-related questions such as:
+**NOTICE**: This is the official Database Management (DBM) team ChatOps tool for L1/L2 operations only.
 
-**🔧 Database Troubleshooting:**
-• Connection issues and timeouts
-• Error diagnosis and resolution
-• Performance problems
-• System crashes and recovery
+**💼 AUTHORIZED DATABASE OPERATIONS:**
 
-**⚡ SQL Query Optimization:**
-• Slow query analysis and tuning
-• Index recommendations
-• Execution plan optimization
-• Query rewriting strategies
+**🔧 L1 Troubleshooting:**
+• Connection timeouts and authentication issues
+• Standard error diagnosis and resolution
+• Performance monitoring and basic optimization
+• Routine maintenance operations
 
-**🏗️ Database Architecture:**
-• Schema design and normalization
-• Scaling and partitioning strategies
-• High availability and disaster recovery
-• Migration planning
+**⚡ L2 Query Optimization:**
+• SQL query performance analysis
+• Index recommendations and implementation
+• Execution plan analysis and tuning
+• Query rewriting for performance
 
-**📊 Performance & Capacity:**
-• Resource utilization analysis
-• Capacity planning and sizing
-• Monitoring and alerting setup
-• Cost optimization
+**📊 L2 Performance Analysis:**
+• Resource utilization assessment
+• Capacity planning recommendations
+• Monitoring setup and alerting
+• Performance baseline establishment
 
-**🔐 Database Security:**
-• Access control and permissions
-• Encryption and compliance
-• Audit logging and monitoring
-• Security best practices
+**🔐 L1/L2 Security Operations:**
+• Access control verification
+• Security configuration review
+• Compliance check procedures
+• Audit log analysis
 
-**Please ask me about your database needs!** I'm here to help with SQL queries, performance issues, architecture design, troubleshooting, and all database-related challenges.
+**⚠️ ESCALATION REQUIRED:**
+For complex architecture changes, production schema modifications, or critical system failures, escalate to the DBM team after using this tool for initial analysis.
 
-💡 *Example: "My PostgreSQL query is running slow" or "Help me optimize this SQL query"*"""
+**📝 Please provide database-related requests only.** Non-database queries will be rejected to maintain operational focus.
+
+💡 *Format: "[Environment] [Database] [Issue Description]" - Example: "PROD PostgreSQL connection timeout errors"*"""
     
     def get_specialized_recommendation(self, user_input, user_selections=None):
         """Provide specialized recommendations for common database patterns"""
@@ -977,8 +986,8 @@ if 'api_usage_count' not in st.session_state:
     st.session_state.api_usage_count = 0
 
 # Header
-st.title("🗄️ DB-Buddy - AI Database Assistant")
-st.markdown("Your AI-powered database assistant that replaces hours of research with instant, expert solutions")
+st.title("🗄️ DB-Buddy - Official DBM ChatOps")
+st.markdown("**Enterprise Database Operations Assistant** | L1/L2 Support Before Escalation | Official DBM Team Tool")
 
 # Sidebar for service selection and history
 with st.sidebar:
@@ -1077,12 +1086,12 @@ with st.sidebar:
             st.write("No past conversations found.")
 
 # Call to Action at top
-st.markdown("""<div style='background: linear-gradient(135deg, #3b82f6, #2563eb); padding: 2rem; border-radius: 20px; margin-bottom: 2rem; text-align: center; color: white;'>
-    <h2 style='color: white; margin-bottom: 1rem; font-size: 1.8rem;'>🚀 Ready to Solve Your Database Challenges?</h2>
-    <p style='font-size: 1.1rem; margin-bottom: 1.5rem; opacity: 0.9;'>Join thousands of developers and DBAs who save hours every week with DB-Buddy</p>
+st.markdown("""<div style='background: linear-gradient(135deg, #1e40af, #1e3a8a); padding: 2rem; border-radius: 20px; margin-bottom: 2rem; text-align: center; color: white; border: 2px solid #3b82f6;'>
+    <h2 style='color: white; margin-bottom: 1rem; font-size: 1.8rem;'>🏢 Official DBM Team ChatOps</h2>
+    <p style='font-size: 1.1rem; margin-bottom: 1.5rem; opacity: 0.9;'>L1/L2 Database Operations Support - Resolve 80% of issues before DBM escalation</p>
     <div style='background: rgba(255,255,255,0.1); padding: 1.2rem; border-radius: 15px;'>
-        <h4 style='color: white; margin-bottom: 0.8rem;'>Get Started in 3 Simple Steps:</h4>
-        <p style='color: white; opacity: 0.9; margin: 0;'>1. Select a service from the sidebar → 2. Click "New Chat" → 3. Describe your database challenge</p>
+        <h4 style='color: white; margin-bottom: 0.8rem;'>Enterprise Operations Workflow:</h4>
+        <p style='color: white; opacity: 0.9; margin: 0;'>1. Select operation type → 2. Provide system details → 3. Get L1/L2 resolution → 4. Escalate to DBM if needed</p>
     </div>
 </div>""", unsafe_allow_html=True)
 

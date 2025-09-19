@@ -2175,10 +2175,16 @@ I'll help you implement comprehensive database security measures.
         urgency = analysis['technical_details']['urgency']
         service_type = analysis['service_type']
         
-        system_prompt = f"""You are DB-Buddy, a specialized database expert consultant with deep expertise in {service_type}.
+        system_prompt = f"""You are DB-Buddy, the official DBM team ChatOps assistant for L1/L2 database operations with deep expertise in {service_type}.
 
-IMPORTANT: You ONLY help with database-related topics. If the user asks about non-database topics (movies, entertainment, general knowledge, etc.), respond with:
-"I'm DB-Buddy, your specialized database assistant. I can only help with database-related questions like SQL optimization, performance tuning, troubleshooting, architecture design, and database administration. Please ask me about your database needs!"
+OPERATIONAL SCOPE:
+- Official DBM team ChatOps tool for L1/L2 operations only
+- Provide accurate, professional responses for database issues
+- Escalate complex issues to DBM team when appropriate
+- Maintain enterprise-grade accuracy and reliability
+
+IMPORTANT: You ONLY help with database-related topics. If the user asks about non-database topics, respond with:
+"This is the official DBM ChatOps tool for database operations only. Please provide database-related requests."
 
 For database-related questions:
 
@@ -2195,6 +2201,7 @@ Response Guidelines:
 - Include specific commands, queries, and implementation steps
 - Provide monitoring and prevention strategies
 - Be solution-focused and actionable
+- Always indicate when escalation to DBM team is recommended
 
 User's specific situation: {user_input}
 
@@ -2233,43 +2240,42 @@ Provide expert recommendations tailored to their needs and expertise level."""
     
     def get_non_database_response(self):
         """Response for non-database related queries"""
-        return """🤖 **DB-Buddy - Database Specialist**
+        return """🏢 **DB-Buddy - Official DBM ChatOps**
 
-I'm DB-Buddy, your specialized database assistant. I can only help with database-related questions such as:
+**NOTICE**: This is the official Database Management (DBM) team ChatOps tool for L1/L2 operations only.
 
-**🔧 Database Troubleshooting:**
-• Connection issues and timeouts
-• Error diagnosis and resolution
-• Performance problems
-• System crashes and recovery
+**💼 AUTHORIZED DATABASE OPERATIONS:**
 
-**⚡ SQL Query Optimization:**
-• Slow query analysis and tuning
-• Index recommendations
-• Execution plan optimization
-• Query rewriting strategies
+**🔧 L1 Troubleshooting:**
+• Connection timeouts and authentication issues
+• Standard error diagnosis and resolution
+• Performance monitoring and basic optimization
+• Routine maintenance operations
 
-**🏗️ Database Architecture:**
-• Schema design and normalization
-• Scaling and partitioning strategies
-• High availability and disaster recovery
-• Migration planning
+**⚡ L2 Query Optimization:**
+• SQL query performance analysis
+• Index recommendations and implementation
+• Execution plan analysis and tuning
+• Query rewriting for performance
 
-**📊 Performance & Capacity:**
-• Resource utilization analysis
-• Capacity planning and sizing
-• Monitoring and alerting setup
-• Cost optimization
+**📊 L2 Performance Analysis:**
+• Resource utilization assessment
+• Capacity planning recommendations
+• Monitoring setup and alerting
+• Performance baseline establishment
 
-**🔐 Database Security:**
-• Access control and permissions
-• Encryption and compliance
-• Audit logging and monitoring
-• Security best practices
+**🔐 L1/L2 Security Operations:**
+• Access control verification
+• Security configuration review
+• Compliance check procedures
+• Audit log analysis
 
-**Please ask me about your database needs!** I'm here to help with SQL queries, performance issues, architecture design, troubleshooting, and all database-related challenges.
+**⚠️ ESCALATION REQUIRED:**
+For complex architecture changes, production schema modifications, or critical system failures, escalate to the DBM team after using this tool for initial analysis.
 
-💡 *Example: "My PostgreSQL query is running slow" or "Help me optimize this SQL query"*"""
+**📝 Please provide database-related requests only.** Non-database queries will be rejected to maintain operational focus.
+
+💡 *Format: "[Environment] [Database] [Issue Description]" - Example: "PROD PostgreSQL connection timeout errors"*"""
     
     def get_enhanced_fallback(self, service_type, user_input, user_selections, analysis):
         """Enhanced fallback responses with context awareness"""
