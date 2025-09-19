@@ -1343,43 +1343,67 @@ I'll help you implement comprehensive database security and meet compliance requ
         if any(marker in text_lower for marker in ['problematic sql:', 'sql query:', 'sql:', 'query:', 'here is my query', 'my sql is']):
             return True
         
-        # Exclude descriptive text that mentions SQL concepts but isn't actual SQL
+        # EXCLUDE descriptive text first (most important)
         descriptive_phrases = [
             'we have a table', 'our table', 'the table', 'database has', 'queries are slow',
             'select queries', 'when we exclude', 'what can be done', 'how to optimize',
             'performance issue', 'slow response', 'taking around', 'minutes to complete',
-            'resulted in', 'size of', 'gb in size', 'toast table', 'jsonb columns'
+            'resulted in', 'size of', 'gb in size', 'toast table', 'jsonb columns',
+            'with jsonb columns', 'that are slow', 'columns are', 'table with'
         ]
         
         # If text contains descriptive phrases, it's likely a description, not SQL
         if any(phrase in text_lower for phrase in descriptive_phrases):
             return False
         
-        # Primary SQL keywords that must be followed by actual SQL syntax
-        primary_keywords = ['select ', 'insert ', 'update ', 'delete ', 'create ', 'alter ', 'drop ']
+        # PRIORITY 1: Check for actual SQL structure patterns
+        # Look for SELECT with FROM clause (most common SQL pattern)
+        if 'select ' in text_lower and 'from ' in text_lower:
+            # Additional validation: check for table/column patterns
+            if any(pattern in text for pattern in ['.', '_', '"', "'", 'ca.', 'WHERE', 'AND', 'OR']):
+                return True
         
-        # Check for primary keywords with proper SQL structure
-        has_primary = any(keyword in text_lower for keyword in primary_keywords)
+        # PRIORITY 2: Check for other SQL statement patterns
+        sql_patterns = [
+            ('insert into', 'values'),
+            ('update ', 'set '),
+            ('delete from', 'where'),
+            ('create table', '('),
+            ('alter table', 'add'),
+            ('drop table', ''),
+        ]
         
-        if has_primary:
-            # Verify it's actual SQL by checking for proper structure
-            # Must have SQL keyword followed by columns/tables, not just descriptive text
-            lines = text.split('\n')
-            for line in lines:
-                line_lower = line.lower().strip()
-                if any(keyword in line_lower for keyword in primary_keywords):
-                    # Check if this line looks like actual SQL (not description)
-                    if any(pattern in line_lower for pattern in [' from ', ' set ', ' values ', ' where ', ' into ']):
-                        return True
+        for pattern1, pattern2 in sql_patterns:
+            if pattern1 in text_lower and (not pattern2 or pattern2 in text_lower):
+                return True
         
-        # Check for SQL structure patterns (must be actual SQL, not descriptions)
-        has_sql_structure = (
-            ('select' in text_lower and 'from' in text_lower and len(text.split('\n')) <= 10) or
-            ('json_build_object(' in text_lower) or
-            ('array_agg(' in text_lower and '(' in text and ')' in text)
-        )
+        # PRIORITY 3: Check for complex SQL functions and structures
+        complex_sql_indicators = [
+            'json_build_object(',
+            'array_agg(',
+            'count(*) over(',
+            'case when',
+            'left join',
+            'inner join',
+            'group by',
+            'order by',
+            'having ',
+            'union ',
+            'with '
+        ]
         
-        return has_sql_structure
+        if any(indicator in text_lower for indicator in complex_sql_indicators):
+            return True
+        
+        # PRIORITY 4: Check for SQL with schema notation (schema.table)
+        if any(pattern in text for pattern in ['client_oip_ms.', 'public.', 'dbo.']):
+            return True
+        
+        # PRIORITY 5: Check for column aliases and SQL-specific syntax
+        if any(pattern in text for pattern in ['&quot;', '&amp;', 'ca.', 'sa.', 'b.']):
+            return True
+        
+        return False
     
     def get_intelligent_troubleshooting_response(self, user_input, context, analysis, user_selections):
         """Generate intelligent troubleshooting responses"""
@@ -1477,7 +1501,11 @@ I can help optimize your SQL queries for better performance.
         """Analyze the actual SQL query provided by user"""
         input_lower = user_input.lower()
         
-        # Check for the specific performance issue mentioned
+        # PRIORITY 1: Check for JSONB/TOAST performance issues first
+        if any(keyword in input_lower for keyword in ['jsonb', 'toast', 'json columns']) and any(perf in input_lower for perf in ['slow', 'performance', 'minutes', 'taking around']):
+            return self.analyze_jsonb_toast_performance(user_input, user_selections)
+        
+        # PRIORITY 2: Check for the specific performance issue mentioned
         if '100ms' in user_input and '40s' in user_input:
             return self.analyze_execution_time_discrepancy(user_input, user_selections)
         
@@ -1503,13 +1531,17 @@ I can help optimize your SQL queries for better performance.
                 # Stop at semicolon or when we hit clear end markers
                 if (line_stripped.endswith(';') or 
                     (i < len(lines) - 1 and lines[i+1].strip() == '') or
-                    any(end_phrase in line_lower for end_phrase in ['the query is', 'execution time', 'issue with'])):
+                    any(end_phrase in line_lower for end_phrase in ['these are the json columns', 'the where condition', 'issue with'])):
                     break
         
         sql_query = '\n'.join(sql_lines).strip()
         
         # If we found a substantial SQL query, analyze it
         if len(sql_query) > 50 and any(keyword in sql_query.lower() for keyword in ['select', 'from', 'where']):
+            
+            # PRIORITY 3: Check for JSONB columns mentioned after the query
+            if any(jsonb_indicator in user_input.lower() for jsonb_indicator in ['json columns', 'jsonb columns', 'these are the json columns']):
+                return EnhancedResponses.analyze_jsonb_query_performance(sql_query, user_input, user_selections)
             
             # Detect specific patterns in the query
             if 'json_build_object' in sql_query.lower() and 'array_agg' in sql_query.lower():

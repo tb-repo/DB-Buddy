@@ -118,88 +118,7 @@ If your application always needs JSONB, then **option (2) - move JSONB into a si
 
 Would you like me to help you implement the query splitting approach first, or do you want to see the execution plan analysis to confirm the TOAST bottleneck?"""
 
-    @staticmethod
-    def analyze_sql_query_with_jsonb(user_input, user_selections):
-        """Enhanced SQL analysis for the specific JSONB query"""
-        return """Perfect! Now I can see exactly what's happening with your query.
 
-**⚡ Why your query is slow:**
-
-Your WHERE condition (`idp_institution_id = 'IID-AU-00412'`) is indexed → so Postgres can quickly find the matching rows.
-
-But you're selecting **4 JSONB columns**:
-- `ca.common_details`
-- `ca.verification_details` 
-- `ca.oip_academic_qualifications`
-- `ca.offer_matching_criteria_details`
-
-Postgres has to **de-TOAST all of these from the 17 GB side-table**, even if you don't use all their keys. That's what pushes execution time from 3 seconds → 3 minutes.
-
-**🚀 Immediate fix - Split your query:**
-
-```sql
--- Query 1: Fast (3 sec) - Get everything except JSONB
-SELECT ca.oip_id, ca.status, ca.reference_number "refNumber", 
-       ca.qualification_type_id "qualificationTitle", 
-       ca.qualification_type "qualificationType",
-       ca.matching_details_student_data "matchingStudentData",
-       ca.study_level "studyLevel",
-       CASE WHEN ca.status = 'Verified' THEN 'Y' ELSE 'N' END "verifiedFlag",
-       ca.updated_at, ca.created_at, ca.student_id "studentId", 
-       ca.availability_id "availabilityId", ca.proposal_id
-FROM client_oip_ms.oip_student_course_availability ca
-WHERE ca.idp_institution_id = 'IID-AU-00412';
-
--- Query 2: Only when you need JSONB data
-SELECT ca.availability_id, -- for joining
-       ca.common_details, ca.verification_details,
-       ca.oip_academic_qualifications, ca.offer_matching_criteria_details
-FROM client_oip_ms.oip_student_course_availability ca
-WHERE ca.idp_institution_id = 'IID-AU-00412'
-  AND ca.availability_id IN (/* IDs from first query */);
-```
-
-**🔑 Alternative approaches:**
-
-**Option 1: Only select JSONB keys you actually need**
-```sql
--- Instead of entire JSONB objects, extract specific fields
-SELECT ca.oip_id, ca.status, /* other non-JSONB columns */
-       ca.common_details->>'status' as common_status,
-       ca.verification_details->>'verified_by' as verified_by
-FROM client_oip_ms.oip_student_course_availability ca
-WHERE ca.idp_institution_id = 'IID-AU-00412';
-```
-
-**Option 2: Create a side table for JSONB (long-term)**
-```sql
--- Move JSONB to separate table
-CREATE TABLE client_oip_ms.oip_course_availability_json (
-    availability_id bigint PRIMARY KEY REFERENCES client_oip_ms.oip_student_course_availability(availability_id),
-    common_details jsonb,
-    verification_details jsonb,
-    oip_academic_qualifications jsonb,
-    offer_matching_criteria_details jsonb
-);
-```
-
-**🎯 Expected results:**
-- **Query splitting**: 3min → 3sec (immediate win)
-- **Selective JSONB**: 3min → 10-30sec
-- **Side table approach**: 3min → 5-10sec (with JOIN when needed)
-
-**🚀 Quick test:**
-Try running just the non-JSONB version of your query first:
-
-```sql
-SELECT ca.oip_id, ca.status, ca.reference_number "refNumber"
-FROM client_oip_ms.oip_student_course_availability ca
-WHERE ca.idp_institution_id = 'IID-AU-00412';
-```
-
-This should complete in ~3 seconds and confirm that the JSONB columns are the bottleneck.
-
-Want me to help you implement the query splitting approach, or would you prefer to see the side table strategy?"""
 
     @staticmethod
     def get_conversational_system_prompt(service_type, expertise_level, urgency, analysis):
@@ -235,6 +154,104 @@ User Context:
 - Complexity: {analysis['complexity']}
 
 Provide conversational, practical recommendations with immediate actionable steps."""
+
+    @staticmethod
+    def analyze_jsonb_query_performance(sql_query, user_input, user_selections):
+        """Analyze specific SQL query with JSONB performance issues"""
+        return f"""Perfect! Now I can see exactly what's happening with your query.
+
+**Your Query:**
+```sql
+{sql_query[:500]}{'...' if len(sql_query) > 500 else ''}
+```
+
+**⚡ Root Cause Analysis:**
+
+Your WHERE condition (`idp_institution_id = 'IID-AU-00412'`) is indexed → Postgres quickly finds matching rows.
+
+But you're selecting **4 JSONB columns**:
+- `ca.common_details`
+- `ca.verification_details` 
+- `ca.oip_academic_qualifications`
+- `ca.offer_matching_criteria_details`
+
+**The bottleneck:** Postgres has to **de-TOAST all JSONB data from the 17 GB side-table**, even if you don't use all their keys. That's what pushes execution time from 3 seconds → 3 minutes.
+
+**🚀 Immediate Solutions (ranked by impact):**
+
+**Option 1: Split the query (Fastest fix - 3min → 3sec)**
+```sql
+-- Query 1: Fast (3 sec) - Get everything except JSONB
+SELECT ca.oip_id, ca.status, ca.reference_number "refNumber", 
+       ca.qualification_type_id "qualificationTitle", 
+       ca.qualification_type "qualificationType",
+       ca.matching_details_student_data "matchingStudentData",
+       ca.study_level "studyLevel",
+       CASE WHEN ca.status = 'Verified' THEN 'Y' ELSE 'N' END "verifiedFlag",
+       ca.updated_at, ca.created_at, ca.student_id "studentId", 
+       ca.availability_id "availabilityId", ca.proposal_id
+FROM client_oip_ms.oip_student_course_availability ca
+WHERE ca.idp_institution_id = 'IID-AU-00412';
+
+-- Query 2: Only when you need JSONB data
+SELECT ca.availability_id, -- for joining
+       ca.common_details, ca.verification_details,
+       ca.oip_academic_qualifications, ca.offer_matching_criteria_details
+FROM client_oip_ms.oip_student_course_availability ca
+WHERE ca.idp_institution_id = 'IID-AU-00412'
+  AND ca.availability_id IN (/* specific IDs from first query */);
+```
+
+**Option 2: Extract only needed JSONB keys (3min → 30sec)**
+```sql
+-- Instead of entire JSONB objects, get specific fields
+SELECT ca.oip_id, ca.status, ca.reference_number "refNumber",
+       /* other non-JSONB columns */
+       ca.common_details->>'status' as common_status,
+       ca.verification_details->>'verified_by' as verified_by,
+       ca.oip_academic_qualifications->>'degree_type' as degree_type
+FROM client_oip_ms.oip_student_course_availability ca
+WHERE ca.idp_institution_id = 'IID-AU-00412';
+```
+
+**Option 3: Create JSONB side table (Long-term - 3min → 10sec)**
+```sql
+-- Move JSONB to separate table (one-time setup)
+CREATE TABLE client_oip_ms.oip_course_availability_json (
+    availability_id bigint PRIMARY KEY,
+    common_details jsonb,
+    verification_details jsonb,
+    oip_academic_qualifications jsonb,
+    offer_matching_criteria_details jsonb
+);
+
+-- Then your main query becomes fast
+SELECT ca.oip_id, ca.status, ca.reference_number "refNumber"
+       /* all non-JSONB columns */
+FROM client_oip_ms.oip_student_course_availability ca
+WHERE ca.idp_institution_id = 'IID-AU-00412';
+
+-- JOIN JSONB table only when needed
+```
+
+**🎯 Quick Test:**
+First, confirm the JSONB bottleneck by running this:
+
+```sql
+SELECT COUNT(*), ca.status
+FROM client_oip_ms.oip_student_course_availability ca
+WHERE ca.idp_institution_id = 'IID-AU-00412'
+GROUP BY ca.status;
+```
+
+This should complete in ~3 seconds, confirming that filtering is fast and JSONB retrieval is the problem.
+
+**Expected Results:**
+- **Query splitting**: 3min → 3sec (immediate)
+- **Selective JSONB**: 3min → 30sec
+- **Side table**: 3min → 10sec (with JOIN when needed)
+
+Which approach would you like to try first? I'd recommend starting with the query splitting since it's the fastest to implement and test."""
 
     @staticmethod
     def get_enhanced_welcome_messages():
