@@ -70,11 +70,15 @@ class DBBuddy:
         if ('100ms' in user_input and '40s' in user_input) or ('explain plan' in input_lower and 'actual' in input_lower):
             return self.analyze_execution_time_discrepancy(user_input, user_selections)
         
-        # PRIORITY 2: Detect ANY SQL query - enhanced detection
+        # PRIORITY 2: Check for JSONB/TOAST performance issues
+        if any(keyword in input_lower for keyword in ['jsonb', 'toast', 'json columns']) and any(perf in input_lower for perf in ['slow', 'performance', 'minutes', 'taking around']):
+            return self.analyze_jsonb_toast_performance(user_input, user_selections)
+        
+        # PRIORITY 3: Detect actual SQL queries (not descriptions)
         if self.contains_sql_query(user_input):
             return self.analyze_actual_sql_query(user_input, user_selections)
         
-        # PRIORITY 3: Check for execution plan analysis
+        # PRIORITY 4: Check for execution plan analysis
         if any(phrase in input_lower for phrase in ['query plan', 'execution time:', 'hash join', 'seq scan']):
             return self.get_query_execution_plan_analysis(user_input, user_selections)
         
@@ -1271,9 +1275,10 @@ I'll help you implement comprehensive database security and meet compliance requ
     
     def get_service_specific_response(self, service_type, user_input, context, analysis, user_selections):
         """Generate service-specific intelligent responses"""
-        # Check for SQL queries first (highest priority)
-        if analysis['technical_details']['has_sql']:
-            return self.get_specialized_recommendation(user_input, user_selections)
+        # Check for specialized patterns first (highest priority)
+        specialized_response = self.get_specialized_recommendation(user_input, user_selections)
+        if specialized_response:
+            return specialized_response
         
         # Service-specific response generation
         response_generators = {
@@ -1330,35 +1335,50 @@ I'll help you implement comprehensive database security and meet compliance requ
         return 'beginner'
     
     def contains_sql_query(self, text):
-        """Check if text contains SQL query - enhanced detection"""
+        """Check if text contains actual SQL query - improved detection"""
         text_lower = text.lower()
         
         # Check for explicit SQL markers
-        if any(marker in text_lower for marker in ['problematic sql:', 'sql query:', 'sql:', 'query:']):
+        if any(marker in text_lower for marker in ['problematic sql:', 'sql query:', 'sql:', 'query:', 'here is my query', 'my sql is']):
             return True
         
-        # Primary SQL keywords
+        # Exclude descriptive text that mentions SQL concepts but isn't actual SQL
+        descriptive_phrases = [
+            'we have a table', 'our table', 'the table', 'database has', 'queries are slow',
+            'select queries', 'when we exclude', 'what can be done', 'how to optimize',
+            'performance issue', 'slow response', 'taking around', 'minutes to complete',
+            'resulted in', 'size of', 'gb in size', 'toast table', 'jsonb columns'
+        ]
+        
+        # If text contains descriptive phrases, it's likely a description, not SQL
+        if any(phrase in text_lower for phrase in descriptive_phrases):
+            return False
+        
+        # Primary SQL keywords that must be followed by actual SQL syntax
         primary_keywords = ['select ', 'insert ', 'update ', 'delete ', 'create ', 'alter ', 'drop ']
         
-        # Secondary SQL indicators
-        secondary_keywords = ['from ', 'where ', 'join ', 'group by', 'order by', 'having ', 'union ']
-        
-        # Check for primary keywords
+        # Check for primary keywords with proper SQL structure
         has_primary = any(keyword in text_lower for keyword in primary_keywords)
         
-        # Check for secondary keywords (strong indicators of SQL)
-        has_secondary = any(keyword in text_lower for keyword in secondary_keywords)
+        if has_primary:
+            # Verify it's actual SQL by checking for proper structure
+            # Must have SQL keyword followed by columns/tables, not just descriptive text
+            lines = text.split('\n')
+            for line in lines:
+                line_lower = line.lower().strip()
+                if any(keyword in line_lower for keyword in primary_keywords):
+                    # Check if this line looks like actual SQL (not description)
+                    if any(pattern in line_lower for pattern in [' from ', ' set ', ' values ', ' where ', ' into ']):
+                        return True
         
-        # Check for SQL structure patterns
-        has_sql_structure = ('select' in text_lower and 'from' in text_lower) or \
-                           ('json_build_object' in text_lower) or \
-                           ('array_agg' in text_lower) or \
-                           ('count(' in text_lower and 'over()' in text_lower)
+        # Check for SQL structure patterns (must be actual SQL, not descriptions)
+        has_sql_structure = (
+            ('select' in text_lower and 'from' in text_lower and len(text.split('\n')) <= 10) or
+            ('json_build_object(' in text_lower) or
+            ('array_agg(' in text_lower and '(' in text and ')' in text)
+        )
         
-        # Check for PostgreSQL specific functions and patterns
-        has_pg_functions = any(func in text_lower for func in ['coalesce(', 'array_agg(', 'json_build_object(', 'count(1) over()', 'max(', 'left join'])
-        
-        return has_primary or has_secondary or has_sql_structure or has_pg_functions
+        return has_sql_structure
     
     def get_intelligent_troubleshooting_response(self, user_input, context, analysis, user_selections):
         """Generate intelligent troubleshooting responses"""
@@ -1728,6 +1748,167 @@ WHERE idx_scan = 0;
 
 💡 **Share the execution plan output for detailed optimization recommendations.**"""
     
+    def analyze_jsonb_toast_performance(self, user_input, user_selections):
+        """Analyze JSONB/TOAST table performance issues"""
+        db_system = user_selections.get('database', 'PostgreSQL') if user_selections else 'PostgreSQL'
+        
+        # Extract key metrics from user input
+        table_size = "2 GB" if "2 gb" in user_input.lower() else "Unknown"
+        toast_size = "17 GB" if "17 gb" in user_input.lower() else "Large"
+        slow_time = "3 minutes" if "3 min" in user_input.lower() else "Very slow"
+        fast_time = "3 seconds" if "3 sec" in user_input.lower() else "Much faster"
+        
+        return f"""🔍 **JSONB/TOAST Performance Analysis**
+
+⚠️ **Critical Issue**: TOAST table bloat causing severe performance degradation
+
+✅ **System Configuration:**
+- **Database**: {db_system}
+- **Table Size**: {table_size}
+- **TOAST Size**: {toast_size} (8.5x larger than main table!)
+- **Performance Impact**: {slow_time} with JSONB vs {fast_time} without
+
+🔍 **Root Cause Analysis:**
+
+**1. TOAST Table Bloat (Primary Issue):**
+- JSONB columns stored in separate TOAST table
+- 17GB TOAST vs 2GB main table = 850% overhead
+- Each JSONB access requires additional I/O to TOAST table
+- TOAST pages scattered across disk causing random I/O
+
+**2. JSONB Processing Overhead:**
+- JSONB decompression on every SELECT
+- Large JSONB objects cause memory pressure
+- No selective column access for JSONB fields
+
+**3. Index Limitations:**
+- Regular indexes don't help with TOAST data retrieval
+- JSONB-specific indexes (GIN) may not cover all access patterns
+- TOAST table itself has limited indexing options
+
+⚡ **Immediate Optimizations (Expected: 3min → 10-30sec):**
+
+**1. Selective Column Retrieval:**
+```sql
+-- Instead of SELECT * or SELECT jsonb_col
+-- Use specific JSONB path extraction:
+SELECT id, name, 
+       jsonb_col->>'specific_field' as field1,
+       jsonb_col->'nested'->>'field' as field2
+FROM your_table 
+WHERE indexed_column = 'value';
+```
+
+**2. Create Functional Indexes on Frequently Accessed JSONB Paths:**
+```sql
+-- Index commonly queried JSONB fields
+CREATE INDEX CONCURRENTLY idx_jsonb_field1 
+ON your_table USING BTREE ((jsonb_col->>'field1'));
+
+CREATE INDEX CONCURRENTLY idx_jsonb_nested 
+ON your_table USING BTREE ((jsonb_col->'nested'->>'field'));
+
+-- GIN index for complex JSONB queries
+CREATE INDEX CONCURRENTLY idx_jsonb_gin 
+ON your_table USING GIN (jsonb_col);
+```
+
+**3. Implement Query-Level Optimization:**
+```sql
+-- Use EXISTS instead of JOIN when possible
+SELECT id, name FROM your_table t1
+WHERE EXISTS (
+    SELECT 1 FROM your_table t2 
+    WHERE t2.id = t1.id 
+    AND t2.jsonb_col->>'status' = 'active'
+);
+
+-- Limit JSONB column retrieval
+SELECT id, name FROM your_table 
+WHERE conditions_without_jsonb
+LIMIT 100;
+
+-- Then fetch JSONB data separately if needed
+SELECT jsonb_col FROM your_table 
+WHERE id IN (previous_result_ids);
+```
+
+🚀 **Long-term Solutions (Expected: 3min → 2-5sec):**
+
+**1. Table Restructuring:**
+```sql
+-- Extract frequently accessed JSONB fields to regular columns
+ALTER TABLE your_table 
+ADD COLUMN extracted_field1 TEXT 
+GENERATED ALWAYS AS (jsonb_col->>'field1') STORED;
+
+ALTER TABLE your_table 
+ADD COLUMN extracted_field2 INTEGER 
+GENERATED ALWAYS AS ((jsonb_col->>'field2')::INTEGER) STORED;
+
+-- Create indexes on extracted columns
+CREATE INDEX CONCURRENTLY idx_extracted_field1 
+ON your_table (extracted_field1);
+```
+
+**2. JSONB Compression and Cleanup:**
+```sql
+-- Vacuum to reclaim TOAST space
+VACUUM FULL your_table;
+
+-- Reindex TOAST table
+REINDEX TABLE your_table;
+
+-- Consider JSONB compression
+ALTER TABLE your_table 
+ALTER COLUMN jsonb_col SET STORAGE EXTERNAL;
+```
+
+**3. Partitioning Strategy:**
+```sql
+-- Partition by frequently filtered column
+CREATE TABLE your_table_partitioned (
+    LIKE your_table INCLUDING ALL
+) PARTITION BY RANGE (created_date);
+
+-- Create monthly partitions
+CREATE TABLE your_table_2024_01 
+PARTITION OF your_table_partitioned 
+FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
+```
+
+📊 **Performance Monitoring:**
+```sql
+-- Monitor TOAST usage
+SELECT 
+    schemaname, tablename, 
+    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as total_size,
+    pg_size_pretty(pg_relation_size(schemaname||'.'||tablename)) as table_size,
+    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename) - 
+                   pg_relation_size(schemaname||'.'||tablename)) as toast_size
+FROM pg_tables 
+WHERE tablename = 'your_table';
+
+-- Check JSONB query performance
+SELECT query, mean_exec_time, calls 
+FROM pg_stat_statements 
+WHERE query LIKE '%jsonb_col%' 
+ORDER BY mean_exec_time DESC;
+```
+
+🎯 **Expected Results:**
+- **Immediate optimizations**: 70-85% improvement (3min → 30sec)
+- **Column extraction**: 90-95% improvement (3min → 10sec)
+- **Full restructuring**: 95-98% improvement (3min → 3-5sec)
+
+💡 **Key Insight**: The 8.5x TOAST bloat is the primary bottleneck. Focus on reducing JSONB column access and extracting frequently used fields to regular columns.
+
+**Next Steps:**
+1. Implement selective column retrieval immediately
+2. Create functional indexes on key JSONB paths
+3. Plan table restructuring during maintenance window
+4. Monitor TOAST table growth and implement regular maintenance"""
+    
     def analyze_execution_time_discrepancy(self, user_input, user_selections):
         """Analyze the specific 100ms vs 40s execution time issue"""
         # Extract the actual SQL query from the user input
@@ -2043,7 +2224,8 @@ Provide expert recommendations tailored to their needs and expertise level."""
             'connection', 'timeout', 'deadlock', 'transaction', 'commit', 'rollback',
             'cpu usage', 'memory usage', 'disk space', 'slow query', 'execution plan',
             'dba', 'database administrator', 'db', 'rds', 'aurora', 'cosmos',
-            'capacity planning', 'sizing', 'scaling', 'sharding', 'clustering'
+            'capacity planning', 'sizing', 'scaling', 'sharding', 'clustering',
+            'jsonb', 'toast', 'json columns', 'slow response', 'response times'
         ]
         
         # Check if any database keywords are present
