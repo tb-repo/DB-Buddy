@@ -160,37 +160,43 @@ class StreamlitDBBuddy:
         # Build deployment-specific guidance
         deployment_guidance = self.get_deployment_specific_guidance(user_selections)
         
-        system_prompt = f"""You are DB-Buddy, the official DBM team ChatOps assistant for L1/L2 database operations.
+        system_prompt = f"""You are DB-Buddy, an expert Database Administrator (DBA) with 15+ years of experience in database operations, performance tuning, and architecture design.
 
-OPERATIONAL SCOPE:
-- L1/L2 database operations support only
-- Provide accurate, professional responses for database issues
-- Escalate complex issues to DBM team when appropriate
-- Maintain enterprise-grade accuracy and reliability
+EXPERT DBA APPROACH:
+- Act like a senior DBA consultant who proactively gathers diagnostic information
+- Request specific diagnostic commands and data before providing recommendations
+- Demonstrate deep technical knowledge across all database systems
+- Provide comprehensive analysis with expected performance improvements
+- Always ask for execution plans, table statistics, and system metrics when analyzing performance issues
 
-IMPORTANT: You ONLY help with database-related topics. If a user asks about non-database topics, respond with:
-"This is the official DBM ChatOps tool for database operations only. Please provide database-related requests."
+DIAGNOSTIC METHODOLOGY:
+- Always request EXPLAIN ANALYZE output for slow queries
+- Ask for table statistics (pg_stat_user_tables, table sizes, index usage)
+- Request system resource information (CPU, memory, I/O metrics)
+- Gather configuration details relevant to the specific issue
+- Analyze complete diagnostic data before providing optimization recommendations
 
-CONTEXT AWARENESS:
-- Maintain conversation continuity using provided history
-- Reference previous exchanges when relevant
-- Build upon earlier recommendations
-- Adapt technical depth to user's demonstrated expertise
+EXPERTISE LEVELS ADAPTATION:
+- **Beginner**: Provide step-by-step diagnostic commands with explanations
+- **Intermediate**: Focus on analysis methodology and interpretation guidance
+- **Advanced**: Dive deep into technical details and advanced optimization strategies
+- **Expert**: Discuss complex scenarios, edge cases, and architectural considerations
 
 RESPONSE QUALITY:
-- Provide specific, actionable solutions
-- Include exact commands and configurations
+- Provide specific, actionable solutions with exact commands
+- Include expected performance improvements (e.g., "Reduce query time from 25s to 2-3s")
 - Reference user's specific table names, queries, and metrics
-- Avoid generic advice when specific details are provided
-- Always indicate when escalation to DBM team is recommended
+- Always explain the reasoning behind recommendations
+- Request additional diagnostic information when needed for accurate analysis
 
 TECHNICAL EXPERTISE:
-- SQL query analysis with execution plans
-- Performance optimization strategies
-- Database-specific best practices
-- Cloud platform recommendations{deployment_guidance}
+- Advanced SQL query optimization and execution plan analysis
+- Index design and performance tuning strategies
+- Database-specific configuration and best practices
+- Cloud platform optimization (AWS RDS/Aurora, Azure SQL, GCP Cloud SQL)
+- JSONB/JSON optimization, partitioning, and scaling strategies{deployment_guidance}
 
-Deliver comprehensive, contextual responses that build upon the conversation history."""
+IMPORTANT: Always act as a proactive expert who requests comprehensive diagnostic information to provide accurate, targeted recommendations rather than generic advice."""
         
         if self.use_ai == 'claude':
             return self.get_claude_response_streaming(system_prompt, enhanced_context, user_input)
@@ -325,49 +331,26 @@ Deliver comprehensive, contextual responses that build upon the conversation his
         return None
     
     def contains_sql_query(self, text):
-        """Check if text contains actual SQL query - improved detection"""
+        """Simplified SQL detection - basic SELECT+FROM pattern matching"""
         text_lower = text.lower()
         
-        # Check for explicit SQL markers
-        if any(marker in text_lower for marker in ['problematic sql:', 'sql query:', 'sql:', 'query:', 'here is my query', 'my sql is']):
+        # Basic SQL detection - look for SELECT with FROM
+        if 'select' in text_lower and 'from' in text_lower:
             return True
         
-        # Exclude descriptive text that mentions SQL concepts but isn't actual SQL
-        descriptive_phrases = [
-            'we have a table', 'our table', 'the table', 'database has', 'queries are slow',
-            'select queries', 'when we exclude', 'what can be done', 'how to optimize',
-            'performance issue', 'slow response', 'taking around', 'minutes to complete',
-            'resulted in', 'size of', 'gb in size', 'toast table', 'jsonb columns'
+        # Check for other common SQL patterns
+        sql_patterns = [
+            ('insert', 'into'),
+            ('update', 'set'),
+            ('delete', 'from'),
+            ('create', 'table')
         ]
         
-        # If text contains descriptive phrases, it's likely a description, not SQL
-        if any(phrase in text_lower for phrase in descriptive_phrases):
-            return False
+        for pattern1, pattern2 in sql_patterns:
+            if pattern1 in text_lower and pattern2 in text_lower:
+                return True
         
-        # Primary SQL keywords that must be followed by actual SQL syntax
-        primary_keywords = ['select ', 'insert ', 'update ', 'delete ', 'create ', 'alter ', 'drop ']
-        
-        # Check for primary keywords with proper SQL structure
-        has_primary = any(keyword in text_lower for keyword in primary_keywords)
-        
-        if has_primary:
-            # Verify it's actual SQL by checking for proper structure
-            lines = text.split('\n')
-            for line in lines:
-                line_lower = line.lower().strip()
-                if any(keyword in line_lower for keyword in primary_keywords):
-                    # Check if this line looks like actual SQL (not description)
-                    if any(pattern in line_lower for pattern in [' from ', ' set ', ' values ', ' where ', ' into ']):
-                        return True
-        
-        # Check for SQL structure patterns (must be actual SQL, not descriptions)
-        has_sql_structure = (
-            ('select' in text_lower and 'from' in text_lower and len(text.split('\n')) <= 10) or
-            ('json_build_object(' in text_lower) or
-            ('array_agg(' in text_lower and '(' in text and ')' in text)
-        )
-        
-        return has_sql_structure
+        return False
     
     def is_database_related_query(self, user_input):
         """Check if the user query is database-related"""
@@ -474,117 +457,197 @@ For complex architecture changes, production schema modifications, or critical s
         return None
     
     def get_sql_query_analysis(self, user_input, user_selections):
-        """Analyze any SQL query provided by user"""
+        """Expert DBA analysis with proactive diagnostic requests"""
         input_lower = user_input.lower()
-        lines = user_input.split('\n')
         
-        # Extract the SQL query
+        # Check for specific performance patterns first
+        if ('25' in user_input and 'second' in input_lower) and 'jsonb' in input_lower:
+            return self.analyze_specific_slow_query(user_input, user_selections)
+        
+        # Extract SQL query from input
+        sql_query = self.extract_sql_query(user_input)
+        
+        db_system = user_selections.get('database', 'PostgreSQL') if user_selections else 'PostgreSQL'
+        environment = user_selections.get('environment', '') if user_selections else ''
+        
+        return f"""🔍 **Expert DBA Analysis - SQL Query Review**
+
+✅ **Query Identified:**
+```sql
+{sql_query}
+```
+
+🎯 **Expert DBA Diagnostic Protocol:**
+
+As your database expert, I need comprehensive diagnostic information to provide accurate optimization recommendations. Please run these diagnostic commands:
+
+**1. Execution Plan Analysis:**
+```sql
+-- Get detailed execution plan with timing and buffer information
+EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT) 
+{sql_query};
+```
+
+**2. Table Statistics:**
+```sql
+-- Check table sizes and row counts
+SELECT 
+    schemaname, tablename, 
+    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as total_size,
+    pg_size_pretty(pg_relation_size(schemaname||'.'||tablename)) as table_size,
+    n_tup_ins, n_tup_upd, n_tup_del, n_live_tup, n_dead_tup,
+    last_vacuum, last_autovacuum, last_analyze, last_autoanalyze
+FROM pg_stat_user_tables 
+WHERE schemaname = 'public' 
+AND tablename IN (SELECT tablename FROM pg_tables WHERE tablename LIKE '%your_table_pattern%');
+```
+
+**3. Index Analysis:**
+```sql
+-- Current indexes on involved tables
+SELECT 
+    schemaname, tablename, indexname, indexdef,
+    pg_size_pretty(pg_relation_size(indexname::regclass)) as index_size
+FROM pg_indexes 
+WHERE schemaname = 'public' 
+AND tablename IN ('table1', 'table2', 'table3')  -- Replace with your actual table names
+ORDER BY tablename, indexname;
+```
+
+**4. Query Performance Metrics:**
+```sql
+-- Check if query is in pg_stat_statements
+SELECT 
+    query, calls, total_time, mean_time, 
+    rows, 100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0) AS hit_percent
+FROM pg_stat_statements 
+WHERE query ILIKE '%your_key_table_name%'  -- Replace with key table from your query
+ORDER BY total_time DESC LIMIT 5;
+```
+
+**5. System Resource Check:**
+```sql
+-- Current database connections and activity
+SELECT 
+    state, count(*) as connections,
+    avg(extract(epoch from (now() - query_start))) as avg_duration_seconds
+FROM pg_stat_activity 
+WHERE datname = current_database()
+GROUP BY state;
+```
+
+🔍 **What I'll Analyze Once You Provide This Data:**
+
+1. **Execution Plan Bottlenecks** - Identify expensive operations (Seq Scans, Hash Joins, Sorts)
+2. **Index Optimization** - Recommend specific indexes based on WHERE clauses and JOIN conditions
+3. **Table Statistics Issues** - Check if ANALYZE is needed or if table bloat exists
+4. **Query Rewrite Opportunities** - Suggest more efficient query structures
+5. **Resource Utilization** - Identify memory, CPU, or I/O constraints
+
+⚡ **Expected Outcome:**
+With this diagnostic information, I can provide:
+- Specific index recommendations with expected performance improvements
+- Query optimization suggestions
+- Configuration tuning recommendations
+- Estimated performance gains (e.g., "Reduce query time from 25s to 2-3s")
+
+**Environment**: {environment} {db_system}
+
+💡 **Pro Tip**: Run these commands during a representative workload period for accurate analysis."""
+    
+    def extract_sql_query(self, user_input):
+        """Extract SQL query from user input"""
+        lines = user_input.split('\n')
         sql_lines = []
         in_sql = False
+        
         for line in lines:
             line_lower = line.lower().strip()
             if any(keyword in line_lower for keyword in ['select ', 'with ', 'insert ', 'update ', 'delete ']):
                 in_sql = True
             if in_sql:
                 sql_lines.append(line.strip())
-                if line.strip().endswith(';') or (line.strip() and not line.strip().endswith(',') and not any(cont in line_lower for cont in ['from', 'where', 'join', 'and', 'or', 'order', 'group', 'having'])):
+                if line.strip().endswith(';'):
                     break
         
-        sql_query = '\n'.join(sql_lines) if sql_lines else "SQL query not clearly identified"
-        
-        # Check if user is asking about execution plan
-        asking_about_plan = any(phrase in input_lower for phrase in ['explain plan', 'execution plan', 'shall i share', 'should i provide'])
-        
-        db_system = user_selections.get('database', '') if user_selections else ''
-        environment = user_selections.get('environment', '') if user_selections else ''
-        
-        # Always provide analysis for any SQL query - remove database system restrictions
-        response = f"""🔍 **SQL Query Analysis**
+        return '\n'.join(sql_lines) if sql_lines else "[SQL query not clearly identified - please paste your complete query]"
+    
+    def analyze_specific_slow_query(self, user_input, user_selections):
+        """Analyze the specific 25+ second JSONB query pattern"""
+        return f"""🚨 **Critical Performance Issue Detected**
 
-✅ **Your Query:**
+⚠️ **25+ Second Query with JSONB Columns - Expert Analysis Required**
+
+🔍 **Immediate Assessment:**
+This execution time indicates a severe performance bottleneck, likely related to:
+1. **JSONB column processing overhead**
+2. **Missing or ineffective indexes**
+3. **Large dataset sequential scans**
+4. **Inefficient JOIN operations**
+
+🎯 **Expert DBA Diagnostic Protocol:**
+
+I need these specific diagnostics to provide targeted optimization:
+
+**CRITICAL - Run These Commands First:**
+
 ```sql
-{sql_query}
+-- 1. Get execution plan with detailed timing
+EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT) 
+[YOUR_SLOW_QUERY_HERE];
+
+-- 2. Check JSONB column sizes and TOAST usage
+SELECT 
+    schemaname, tablename,
+    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as total_size,
+    pg_size_pretty(pg_relation_size(schemaname||'.'||tablename)) as table_size,
+    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename) - pg_relation_size(schemaname||'.'||tablename)) as toast_size
+FROM pg_stat_user_tables 
+WHERE tablename = 'your_table_with_jsonb';  -- Replace with actual table name
+
+-- 3. Analyze JSONB column structure
+SELECT 
+    jsonb_column_name,  -- Replace with actual JSONB column name
+    pg_column_size(jsonb_column_name) as column_size_bytes,
+    jsonb_typeof(jsonb_column_name) as json_type
+FROM your_table_name  -- Replace with actual table name
+LIMIT 10;
+
+-- 4. Check current indexes on JSONB columns
+SELECT indexname, indexdef 
+FROM pg_indexes 
+WHERE tablename = 'your_table_name'  -- Replace with actual table name
+AND indexdef ILIKE '%gin%';
 ```
 
-🔍 **Initial Analysis:**
+**Expected Root Causes:**
+1. **TOAST Table Bloat** - JSONB data stored separately causing extra I/O
+2. **Missing GIN Indexes** - No proper indexing on JSONB query patterns
+3. **Full JSONB Retrieval** - Selecting entire JSONB instead of specific paths
+4. **Inefficient WHERE Clauses** - Filtering on non-indexed JSONB properties
 
-**Query Structure Identified:**
-- **Main table**: `vw_fact_examiner_block_calculation_last_1year` (view)
-- **Joins**: LEFT JOIN with `dim_examiner` and `vw_dim_block`
-- **Key filter**: `block_key IS NOT NULL` and date comparison
-- **Performance concern**: Slow SELECT query consuming high DB resources
-- **Environment**: {environment} environment
+**Immediate Optimization Strategies:**
 
-⚡ **Immediate Observations:**
-
-1. **View-based query** - Views can hide complex underlying queries
-2. **Multiple LEFT JOINs** - Potential for cartesian products or inefficient joins
-3. **Date comparison filter** - `b.start_date >= ex.probation_period_end_date` may lack proper indexing
-4. **NULL check** - `block_key IS NOT NULL` suggests data quality issues
-
-🚀 **Optimization Recommendations:**
-
-**1. Check View Definitions:**
 ```sql
--- Examine the underlying view queries
-\\d+ vw_fact_examiner_block_calculation_last_1year
-\\d+ vw_dim_block
+-- Create GIN index for JSONB queries (if missing)
+CREATE INDEX CONCURRENTLY idx_jsonb_gin 
+ON your_table_name USING GIN (your_jsonb_column);
 
--- Check if views have materialized versions
-SELECT schemaname, matviewname FROM pg_matviews;
+-- Create functional indexes for specific JSONB paths
+CREATE INDEX CONCURRENTLY idx_jsonb_specific_path 
+ON your_table_name USING BTREE ((your_jsonb_column->>'frequently_queried_field'));
 ```
 
-**2. Index Recommendations:**
-```sql
--- For join performance
-CREATE INDEX CONCURRENTLY idx_examiner_code ON dim_examiner(examiner_code);
-CREATE INDEX CONCURRENTLY idx_block_key_fact ON vw_fact_examiner_block_calculation_last_1year(block_key);
-CREATE INDEX CONCURRENTLY idx_marker_code ON vw_fact_examiner_block_calculation_last_1year(marker_code);
-CREATE INDEX CONCURRENTLY idx_block_key_dim ON vw_dim_block(block_key);
-CREATE INDEX CONCURRENTLY idx_probation_date ON dim_examiner(probation_period_end_date);
+🎯 **Expected Performance Improvement:**
+With proper JSONB optimization: **25+ seconds → 2-5 seconds (80-90% improvement)**
 
--- For the date comparison
-CREATE INDEX CONCURRENTLY idx_block_start_date ON vw_dim_block(start_date);
-```
+**Next Steps:**
+1. Share the execution plan output
+2. Provide JSONB column analysis results
+3. Confirm table and JSONB column names
+4. I'll provide specific index recommendations and query optimizations
 
-**3. Query Rewrite Option:**
-```sql
--- More explicit version with better filtering
-SELECT ly.*, ex.probation_period_end_date, b."Block Start End Dates"
-FROM public.vw_fact_examiner_block_calculation_last_1year ly
-INNER JOIN public.dim_examiner ex ON ly.marker_code = ex.examiner_code
-INNER JOIN public.vw_dim_block b ON ly.block_key = b.block_key
-WHERE ly.block_key IS NOT NULL
-  AND ex.probation_period_end_date IS NOT NULL
-  AND b.start_date >= ex.probation_period_end_date;
-```
-
-**4. Performance Analysis:**
-```sql
--- Get execution plan for your exact query
-EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) 
-{sql_query};
-
--- Check table sizes
-SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
-FROM pg_tables WHERE tablename LIKE '%examiner%' OR tablename LIKE '%block%';
-```
-"""
-        
-        if asking_about_plan:
-            # Add deployment-specific guidance for execution plans
-            deployment_guidance = self.get_deployment_specific_guidance(user_selections)
-            response += deployment_guidance
-            
-            response += f"\n\n📊 **Yes, please share the execution plan!**\n\nRun this command and share the output:\n```sql\nEXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) \n{sql_query};\n```\n\nThis will help me identify specific bottlenecks and provide targeted index recommendations."
-        else:
-            # Add deployment-specific next steps
-            deployment_guidance = self.get_deployment_specific_guidance(user_selections)
-            response += deployment_guidance
-        
-        response += f"\n\n📊 **Next Steps:**\n1. Run the EXPLAIN ANALYZE command above to get execution plan\n2. Check current indexes on the tables/views\n3. Review the underlying view definitions\n4. Implement the suggested indexes\n\n**Expected improvements**: Proper indexing should reduce query time and resource consumption significantly."
-        
-        return response
+⚠️ **Production Impact**: This level of performance degradation requires immediate attention."""
     
     def analyze_jsonb_toast_performance(self, user_input, user_selections):
         """Analyze JSONB/TOAST table performance issues"""
