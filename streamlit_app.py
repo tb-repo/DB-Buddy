@@ -572,6 +572,34 @@ With this diagnostic information, I can provide:
         
         return '\n'.join(sql_lines) if sql_lines else "[SQL query not clearly identified - please paste your complete query]"
     
+    def analyze_execution_time_discrepancy(self, user_input, user_selections):
+        """Analyze execution time discrepancy between estimated and actual"""
+        return f"""🚨 **Execution Plan Analysis - Time Discrepancy Detected**
+
+⚠️ **Critical Issue**: Significant difference between estimated and actual execution times
+
+🔍 **Expert DBA Analysis Required:**
+
+Please provide the complete execution plan output so I can analyze:
+1. **Cost estimation accuracy**
+2. **Row count estimates vs actual**
+3. **Buffer usage patterns**
+4. **Join algorithm efficiency**
+
+**Diagnostic Commands Needed:**
+```sql
+EXPLAIN (ANALYZE, BUFFERS, VERBOSE, FORMAT TEXT) 
+[YOUR_QUERY_HERE];
+```
+
+**Expected Analysis:**
+- Identify misestimated operations
+- Recommend statistics updates
+- Suggest query optimizations
+- Provide index recommendations
+
+**Next Steps:** Share your complete execution plan for detailed analysis."""
+    
     def analyze_specific_slow_query(self, user_input, user_selections):
         """Analyze the specific 25+ second JSONB query pattern"""
         return f"""🚨 **Critical Performance Issue Detected**
