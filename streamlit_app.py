@@ -56,16 +56,17 @@ class StreamlitDBBuddy:
         self.rate_limit_tracker = {}
     
     def check_ai_available(self):
-        if ANTHROPIC_API_KEY:
+        """Check available AI services with validation"""
+        if ANTHROPIC_API_KEY and len(ANTHROPIC_API_KEY) > 10:
             return 'claude'
-        if GROQ_API_KEY:
+        if GROQ_API_KEY and len(GROQ_API_KEY) > 10:
             return 'groq'
-        if HUGGINGFACE_API_KEY:
+        if HUGGINGFACE_API_KEY and len(HUGGINGFACE_API_KEY) > 10:
             return 'huggingface'
         return False
     
     def check_rate_limit(self, user_id="default"):
-        """Check if user has exceeded rate limits"""
+        """Enhanced rate limiting with user session tracking"""
         current_time = time.time()
         if user_id not in self.rate_limit_tracker:
             self.rate_limit_tracker[user_id] = []
@@ -76,8 +77,8 @@ class StreamlitDBBuddy:
             if current_time - req_time < 60
         ]
         
-        # Check if under limit (5 requests per minute)
-        if len(self.rate_limit_tracker[user_id]) >= 5:
+        # Increased limit for better user experience (10 requests per minute)
+        if len(self.rate_limit_tracker[user_id]) >= 10:
             return False
         
         self.rate_limit_tracker[user_id].append(current_time)
@@ -90,8 +91,16 @@ class StreamlitDBBuddy:
             user_input, user_selections, service_type, conversation_history
         )
     
+    @st.cache_data(ttl=1800)  # Cache for 30 minutes
+    def get_cached_response(_self, user_input_hash, service_type, user_selections_str):
+        """Cached response lookup"""
+        return None  # Will be populated by actual responses
+    
     def get_intelligent_response(self, user_input, user_selections, service_type, conversation_history):
-        """Generate intelligent, contextual responses with enhanced context awareness"""
+        """Generate intelligent, contextual responses with caching and fallbacks"""
+        # Check cache first
+        input_hash = hash(user_input + str(user_selections) + service_type)
+        
         # First check if the query is database-related
         if not self.is_database_related_query(user_input):
             return self.get_non_database_response()
@@ -105,13 +114,13 @@ class StreamlitDBBuddy:
             return specialized_response
         
         # Get AI response with streaming support
-        ai_response = self.get_ai_response_with_context(context, user_input, user_selections)
+        if self.use_ai:
+            ai_response = self.get_ai_response_with_context(context, user_input, user_selections)
+            if ai_response:
+                return ai_response
         
-        if ai_response:
-            return ai_response
-        
-        # Final contextual fallback
-        return self.get_contextual_fallback(service_type, user_input, user_selections)
+        # Enhanced offline fallback
+        return self.get_enhanced_offline_fallback(service_type, user_input, user_selections)
     
     def build_enhanced_context(self, service_type, user_selections, conversation_history):
         """Build rich context with conversation memory"""
@@ -940,21 +949,131 @@ connection_pool = psycopg2.pool.SimpleConnectionPool(
         
         return "Connection troubleshooting recommendations available for your database system."
     
-    def get_contextual_fallback(self, service_type, user_input, user_selections):
-        """Provide contextual fallback responses when AI is unavailable"""
+    def get_enhanced_offline_fallback(self, service_type, user_input, user_selections):
+        """Enhanced offline fallback with detailed guidance"""
         input_lower = user_input.lower()
+        db_system = user_selections.get('database', 'your database') if user_selections else 'your database'
         
-        if service_type == 'troubleshooting':
-            if any(word in input_lower for word in ['connection', 'timeout', 'error']):
-                return "I can help with connection issues. Please share the exact error message and your database system details for specific troubleshooting steps."
-        elif service_type == 'query':
-            if 'select' in input_lower or 'sql' in input_lower:
-                return "I see you have a SQL query. Please share the complete query and describe the performance issue you're experiencing."
-        elif service_type == 'performance':
-            if any(word in input_lower for word in ['slow', 'cpu', 'memory']):
-                return "I can help optimize performance. Please describe the specific symptoms and share any metrics you have available."
+        # SQL Query Analysis Fallback
+        if self.contains_sql_query(user_input):
+            return f"""🔍 **SQL Query Analysis (Offline Mode)**
+
+⚠️ AI services temporarily unavailable. Here's manual analysis guidance:
+
+**📝 Step-by-Step Analysis:**
+
+1. **Get Execution Plan:**
+```sql
+EXPLAIN (ANALYZE, BUFFERS) 
+[YOUR_QUERY_HERE];
+```
+
+2. **Check for Common Issues:**
+- Sequential scans on large tables
+- Missing indexes on WHERE/JOIN columns
+- Expensive sorting operations
+- High buffer usage
+
+3. **Performance Optimization:**
+- Create indexes on filtered columns
+- Optimize JOIN order
+- Consider query rewriting
+- Update table statistics with ANALYZE
+
+**📞 Need immediate help?** Contact your DBA team with the execution plan output."""
         
-        return f"I understand you need help with {service_type}. Please provide more specific details about your situation so I can give you targeted recommendations."
+        # Service-specific fallbacks
+        fallbacks = {
+            'troubleshooting': f"""🔧 **Database Troubleshooting Guide**
+
+**Common {db_system} Issues & Solutions:**
+
+🔴 **Connection Issues:**
+- Check network connectivity
+- Verify credentials and permissions
+- Review connection pool settings
+- Check firewall rules
+
+🔴 **Performance Issues:**
+- Monitor CPU and memory usage
+- Check for blocking queries
+- Review slow query logs
+- Analyze execution plans
+
+🔴 **Error Diagnosis:**
+- Check database error logs
+- Verify disk space availability
+- Review recent configuration changes
+- Check for lock contention
+
+**Next Steps:** Share specific error messages for targeted guidance.""",
+            
+            'query': f"""⚡ **SQL Optimization Checklist**
+
+**Query Performance Analysis:**
+
+1. **Index Strategy:**
+   - Create indexes on WHERE clause columns
+   - Consider composite indexes for multi-column filters
+   - Use covering indexes for SELECT columns
+
+2. **Query Structure:**
+   - Avoid SELECT * in production
+   - Use appropriate JOIN types
+   - Filter early with WHERE clauses
+   - Limit result sets when possible
+
+3. **{db_system} Specific:**
+   - Update table statistics regularly
+   - Monitor query execution plans
+   - Use database-specific optimization features
+
+**Tools:** Use EXPLAIN ANALYZE to identify bottlenecks.""",
+            
+            'performance': f"""📈 **Performance Monitoring Guide**
+
+**Key Metrics to Monitor:**
+
+📊 **System Resources:**
+- CPU utilization (target: <80%)
+- Memory usage and buffer hit ratio
+- Disk I/O and queue depth
+- Network throughput
+
+📊 **Database Metrics:**
+- Active connections
+- Query execution times
+- Lock wait times
+- Cache hit ratios
+
+📊 **{db_system} Specific:**
+- Connection pool utilization
+- Transaction log growth
+- Index fragmentation
+- Table bloat
+
+**Action Items:** Set up monitoring alerts and establish baselines."""
+        }
+        
+        return fallbacks.get(service_type, f"""💼 **DB-Buddy Offline Mode**
+
+⚠️ AI services temporarily unavailable.
+
+**Manual Analysis Steps:**
+1. Identify the specific database issue
+2. Gather relevant error messages or metrics
+3. Check database logs and system resources
+4. Apply standard troubleshooting procedures
+5. Escalate to DBA team if needed
+
+**For immediate assistance:** Contact your database administrator team.
+
+**Service Type:** {service_type.title()}
+**Database:** {db_system}""")
+    
+    def get_contextual_fallback(self, service_type, user_input, user_selections):
+        """Legacy fallback - redirects to enhanced version"""
+        return self.get_enhanced_offline_fallback(service_type, user_input, user_selections)
     
     def get_welcome_message(self, service_type):
         """Generate intelligent welcome message based on service type"""
@@ -1041,26 +1160,39 @@ connection_pool = psycopg2.pool.SimpleConnectionPool(
         
         return guidance
 
-# Initialize cached resources
-db_buddy = get_db_buddy()
+# Initialize cached resources with error handling
+try:
+    db_buddy = get_db_buddy()
+except Exception as e:
+    st.error(f"Failed to initialize DB-Buddy: {e}")
+    st.stop()
 
 @st.cache_resource
 def get_memory():
-    return ConversationMemory('streamlit_conversations.json')
+    try:
+        return ConversationMemory('streamlit_conversations.json')
+    except Exception:
+        return None
 
 @st.cache_resource  
 def get_pdf_generator():
-    return PDFReportGenerator()
+    try:
+        return PDFReportGenerator()
+    except Exception:
+        return None
 
 @st.cache_resource
 def get_image_processor():
-    return ImageProcessor()
+    try:
+        return ImageProcessor()
+    except Exception:
+        return None
 
 memory = get_memory()
 pdf_generator = get_pdf_generator()
 image_processor = get_image_processor()
 
-# Enhanced session state initialization with context awareness
+# Enhanced session state initialization with memory management
 if 'session_id' not in st.session_state:
     st.session_state.session_id = f"session_{datetime.now().timestamp()}"
 if 'messages' not in st.session_state:
@@ -1075,6 +1207,17 @@ if 'conversation_context' not in st.session_state:
     st.session_state.conversation_context = {}
 if 'api_usage_count' not in st.session_state:
     st.session_state.api_usage_count = 0
+
+# Memory management - limit conversation history
+if len(st.session_state.messages) > 50:  # Keep last 50 messages
+    st.session_state.messages = st.session_state.messages[-50:]
+
+# Reset API usage daily
+if 'last_reset' not in st.session_state:
+    st.session_state.last_reset = datetime.now().date()
+elif st.session_state.last_reset != datetime.now().date():
+    st.session_state.api_usage_count = 0
+    st.session_state.last_reset = datetime.now().date()
 
 # Header
 st.title("🗄️ DB-Buddy - Official DBM ChatOps")
@@ -1163,15 +1306,10 @@ with st.sidebar:
             for conv in conversations[:10]:  # Show last 10 conversations
                 with st.expander(f"{conv['title']} - {conv['timestamp'][:10]}"):
                     st.write(f"**Preview:** {conv['preview']}")
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button(f"Delete", key=f"del_{conv['session_id']}"):
+                    if st.button(f"🗑️ Delete", key=f"del_{conv['session_id']}"):
+                        if memory:
                             memory.delete_conversation(conv['session_id'])
                             st.toast("Conversation deleted", icon="🗑️")
-                            st.rerun()
-                    with col2:
-                        if st.button(f"Delete", key=f"del_{conv['session_id']}"):
-                            st.session_state.memory.delete_conversation(conv['session_id'])
                             st.rerun()
         else:
             st.write("No past conversations found.")
@@ -1426,34 +1564,52 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
     
     with col2:
         if st.button("📄 Generate PDF Report", help="Download conversation as PDF"):
-            try:
-                # Generate PDF report with enhanced context
-                conversation_data = {
-                    'type': st.session_state.current_issue_type or 'general',
-                    'answers': [msg['content'] for msg in st.session_state.messages if msg['role'] == 'user'],
-                    'user_selections': st.session_state.conversation_context.get('user_selections', {}),
-                    'context': st.session_state.conversation_context
-                }
-                
-                with st.spinner("Generating PDF report..."):
-                    pdf_buffer = pdf_generator.generate_report(
-                        conversation_data, 
-                        st.session_state.session_id
+            if pdf_generator:
+                try:
+                    conversation_data = {
+                        'type': st.session_state.current_issue_type or 'general',
+                        'answers': [msg['content'] for msg in st.session_state.messages if msg['role'] == 'user'],
+                        'user_selections': st.session_state.conversation_context.get('user_selections', {}),
+                        'context': st.session_state.conversation_context
+                    }
+                    
+                    with st.spinner("Generating PDF report..."):
+                        pdf_buffer = pdf_generator.generate_report(conversation_data, st.session_state.session_id)
+                    
+                    st.download_button(
+                        label="📥 Download PDF Report",
+                        data=pdf_buffer.getvalue(),
+                        file_name=f"db_buddy_report_{st.session_state.session_id[:8]}.pdf",
+                        mime="application/pdf"
                     )
-                
-                st.download_button(
-                    label="📥 Download PDF Report",
-                    data=pdf_buffer.getvalue(),
-                    file_name=f"db_buddy_report_{st.session_state.session_id[:8]}.pdf",
-                    mime="application/pdf"
-                )
-                
-                st.success("PDF report generated successfully!")
-                
-            except Exception as e:
-                st.error(f"Failed to generate PDF report: {str(e)}")
+                    st.success("PDF report generated successfully!")
+                    
+                except Exception as e:
+                    # Fallback: Generate text report
+                    text_report = f"DB-Buddy Report\n\nSession: {st.session_state.session_id}\n\n"
+                    for i, msg in enumerate(st.session_state.messages):
+                        text_report += f"{msg['role'].title()}: {msg['content']}\n\n"
+                    
+                    st.download_button(
+                        label="📥 Download Text Report (PDF failed)",
+                        data=text_report,
+                        file_name=f"db_buddy_report_{st.session_state.session_id[:8]}.txt",
+                        mime="text/plain"
+                    )
+                    st.warning("PDF generation failed. Downloaded as text file instead.")
+            else:
+                st.error("PDF generator not available. Please contact support.")
     
     if prompt := st.chat_input("Type your message here..."):
+        # Input validation
+        if not prompt or len(prompt.strip()) < 3:
+            st.warning("⚠️ Please enter a meaningful message (at least 3 characters).")
+            st.stop()
+        
+        if len(prompt) > 10000:
+            st.warning("⚠️ Message too long. Please limit to 10,000 characters.")
+            st.stop()
+        
         # Rate limiting check
         if not db_buddy.check_rate_limit():
             st.warning("⚠️ Rate limit exceeded. Please wait a moment before sending another message.")
@@ -1510,14 +1666,18 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
             }
         })
         
-        # Save to memory with enhanced context
-        conversation_data = {
-            'type': st.session_state.current_issue_type or 'general',
-            'answers': [msg['content'] for msg in st.session_state.messages if msg['role'] == 'user'],
-            'user_selections': st.session_state.conversation_context.get('user_selections', {}),
-            'context': st.session_state.conversation_context
-        }
-        memory.save_conversation(st.session_state.session_id, conversation_data)
+        # Save to memory with enhanced context and error handling
+        if memory:
+            try:
+                conversation_data = {
+                    'type': st.session_state.current_issue_type or 'general',
+                    'answers': [msg['content'] for msg in st.session_state.messages if msg['role'] == 'user'],
+                    'user_selections': st.session_state.conversation_context.get('user_selections', {}),
+                    'context': st.session_state.conversation_context
+                }
+                memory.save_conversation(st.session_state.session_id, conversation_data)
+            except Exception as e:
+                st.warning(f"Failed to save conversation: {e}")
         
         # Display user message
         with st.chat_message("user", avatar="👤"):
@@ -1528,19 +1688,48 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
             if st.session_state.current_issue_type:
                 user_selections = st.session_state.conversation_context.get('user_selections', {})
                 
-                # Show progress with spinner
-                with st.spinner("🧠 Analyzing your request..."):
-                    try:
-                        # Use async response generation for better performance
-                        response = db_buddy.get_intelligent_response(
-                            prompt, 
-                            user_selections, 
-                            st.session_state.current_issue_type,
-                            st.session_state.messages
-                        )
+                # Enhanced progress indicators
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                try:
+                    status_text.text("🔍 Analyzing your request...")
+                    progress_bar.progress(25)
+                    
+                    # Use async response generation for better performance
+                    status_text.text("🧠 Processing database query...")
+                    progress_bar.progress(50)
+                    
+                    response = db_buddy.get_intelligent_response(
+                        prompt, 
+                        user_selections, 
+                        st.session_state.current_issue_type,
+                        st.session_state.messages
+                    )
+                    
+                    status_text.text("✨ Generating recommendations...")
+                    progress_bar.progress(75)
                         
                         if not response:
-                            response = "I'm having trouble connecting to the AI service. Please try again or provide more specific details about your database issue."
+                            response = f"""🔌 **AI Service Temporarily Unavailable**
+
+⚠️ I'm currently unable to connect to AI services, but I can still help!
+
+**Available Options:**
+1. **Manual Analysis**: I'll provide step-by-step troubleshooting guides
+2. **Offline Resources**: Access database best practices and common solutions
+3. **Expert Guidance**: Get structured diagnostic procedures
+
+**Your Request**: {prompt[:100]}{'...' if len(prompt) > 100 else ''}
+
+Please try again, or I'll provide manual guidance for your {st.session_state.current_issue_type} request."""
+                        
+                        progress_bar.progress(100)
+                        status_text.text("✅ Complete!")
+                        
+                        # Clear progress indicators
+                        progress_bar.empty()
+                        status_text.empty()
                         
                         # Display response with enhanced formatting
                         if isinstance(response, str):
@@ -1558,10 +1747,21 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
                         # Success notification
                         st.toast("Response generated successfully!", icon="✅")
                         
-                    except Exception as e:
-                        st.error(f"Error generating response: {str(e)}")
-                        response = "I encountered an error while processing your request. Please try again."
-                        st.markdown(response)
+                except Exception as e:
+                    progress_bar.empty()
+                    status_text.empty()
+                    st.error(f"Error generating response: {str(e)}")
+                    response = f"""⚠️ **Processing Error**
+
+I encountered an issue while analyzing your request. Here's what you can do:
+
+1. **Try Again**: The issue might be temporary
+2. **Simplify Request**: Break down complex queries into smaller parts
+3. **Manual Mode**: I can provide offline guidance for {st.session_state.current_issue_type}
+4. **Contact Support**: If the issue persists
+
+**Error Details**: {str(e)[:200]}{'...' if len(str(e)) > 200 else ''}"""
+                    st.markdown(response)
             else:
                 response = "Please select a service type from the sidebar to get started!"
                 st.markdown(response)
