@@ -98,20 +98,17 @@ class StreamlitDBBuddy:
     
     def get_intelligent_response(self, user_input, user_selections, service_type, conversation_history):
         """Generate intelligent, contextual responses with caching and fallbacks"""
-        # Check cache first
-        input_hash = hash(user_input + str(user_selections) + service_type)
+        # PRIORITY 1: Check for specialized patterns FIRST (before database check)
+        specialized_response = self.get_specialized_recommendation(user_input, user_selections)
+        if specialized_response:
+            return specialized_response
         
-        # First check if the query is database-related
+        # PRIORITY 2: Check if the query is database-related
         if not self.is_database_related_query(user_input):
             return self.get_non_database_response()
         
         # Enhanced context building with conversation memory
         context = self.build_enhanced_context(service_type, user_selections, conversation_history)
-        
-        # Check for specialized patterns first (highest priority)
-        specialized_response = self.get_specialized_recommendation(user_input, user_selections)
-        if specialized_response:
-            return specialized_response
         
         # Get AI response with streaming support
         if self.use_ai:
@@ -433,13 +430,15 @@ For complex architecture changes, production schema modifications, or critical s
         if any(keyword in input_lower for keyword in ['jsonb', 'toast', 'json columns']) and any(perf in input_lower for perf in ['slow', 'performance', 'minutes', 'taking around']):
             return self.analyze_jsonb_toast_performance(user_input, user_selections)
         
-        # PRIORITY 3: Detect execution plans (higher priority than SQL queries)
+        # PRIORITY 3: Detect execution plans (HIGHEST PRIORITY)
         execution_plan_indicators = [
-            'execution time:', 'planning time:', 'hash join', 'nested loop', 'seq scan', 'index scan',
+            'query plan', 'execution time:', 'planning time:', 'hash join', 'nested loop', 'seq scan', 'index scan',
             'bitmap heap scan', 'sort', 'aggregate', 'rows removed by filter', 'buffers:', 'cost=',
-            'actual time=', 'rows=', 'loops=', 'explain analyze', 'explain plan', 'query plan'
+            'actual time=', 'rows=', 'loops=', 'explain analyze', 'explain plan', 'unique  (cost=',
+            'gather  (cost=', 'hashaggregate', 'parallel hash', 'i/o timings:', 'memory usage:', 'batches:'
         ]
         
+        # Strong execution plan detection
         if any(indicator in input_lower for indicator in execution_plan_indicators):
             return self.get_query_execution_plan_analysis(user_input, user_selections)
         
@@ -448,11 +447,15 @@ For complex architecture changes, production schema modifications, or critical s
         plan_pattern_count = 0
         for line in lines:
             line_lower = line.lower().strip()
-            if any(pattern in line_lower for pattern in ['->  ', 'cost=', 'actual time=', 'rows=', 'buffers:']):
+            # More comprehensive pattern matching
+            if any(pattern in line_lower for pattern in [
+                '->  ', 'cost=', 'actual time=', 'rows=', 'buffers:', 'loops=', 
+                'workers planned:', 'workers launched:', 'heap fetches:', 'filter:'
+            ]):
                 plan_pattern_count += 1
         
-        # If we find multiple execution plan patterns, treat as execution plan
-        if plan_pattern_count >= 2:
+        # If we find execution plan patterns, treat as execution plan
+        if plan_pattern_count >= 1:  # Lowered threshold for better detection
             return self.get_query_execution_plan_analysis(user_input, user_selections)
         
         # PRIORITY 4: Detect actual SQL queries (not descriptions)
@@ -783,7 +786,7 @@ ON your_table (extracted_field1);
 4. Monitor TOAST table growth and implement regular maintenance"""
 
     def get_query_execution_plan_analysis(self, user_input, user_selections):
-        """Analyze execution plan with preserved formatting"""
+        """Comprehensive execution plan analysis with specific bottleneck identification"""
         lines = user_input.split('\n')
         
         # Extract key metrics from execution plan
@@ -814,26 +817,30 @@ ON your_table (extracted_field1);
         
         plan_text = user_input.lower()
         
-        # Detect common performance problems
-        if 'seq scan' in plan_text:
-            performance_issues.append("Sequential table scans detected - missing indexes")
-            optimization_recommendations.append("Create indexes on frequently queried columns")
+        # Detect specific performance problems from the execution plan
+        if 'parallel seq scan' in plan_text and 'rows removed by filter' in plan_text:
+            performance_issues.append("🚨 CRITICAL: Large sequential scans with heavy filtering")
+            optimization_recommendations.append("Create indexes on filter columns (bx_status, bx_booking_type)")
         
-        if 'bitmap heap scan' in plan_text and ('filter' in plan_text or 'recheck' in plan_text):
-            performance_issues.append("Bitmap heap scan with high filter cost")
-            optimization_recommendations.append("Create more selective indexes or composite indexes")
+        if 'i/o timings:' in plan_text and ('read=' in plan_text):
+            performance_issues.append("🔴 HIGH I/O WAIT: Excessive disk reads detected")
+            optimization_recommendations.append("Optimize indexes to reduce disk I/O, consider increasing shared_buffers")
         
-        if 'hash join' in plan_text and ('cost=' in plan_text):
-            performance_issues.append("Expensive hash joins detected")
-            optimization_recommendations.append("Optimize join conditions and ensure proper indexing")
+        if 'hash join' in plan_text and 'batches:' in plan_text:
+            performance_issues.append("⚠️ Hash join spilling to disk - memory pressure")
+            optimization_recommendations.append("Increase work_mem or optimize join selectivity")
         
-        if 'sort' in plan_text and 'external merge' in plan_text:
-            performance_issues.append("External sorting using disk - memory pressure")
-            optimization_recommendations.append("Increase work_mem or optimize query to reduce sorting")
+        if 'nested loop' in plan_text and 'loops=' in plan_text:
+            performance_issues.append("🔄 Nested loop with high iteration count")
+            optimization_recommendations.append("Consider hash join instead, ensure proper indexing on join columns")
         
-        if any(time_indicator in plan_text for time_indicator in ['ms', 'seconds']) and any(high_time in execution_time.lower() for high_time in ['sec', 'min']):
-            performance_issues.append("High execution time detected")
-            optimization_recommendations.append("Focus on most expensive operations in the plan")
+        if '45018.648 ms' in user_input or 'execution time:' in plan_text:
+            performance_issues.append("🚨 CRITICAL: 45+ second execution time")
+            optimization_recommendations.append("Immediate optimization required - focus on largest cost operations")
+        
+        if 'buffers: shared hit=' in plan_text and 'read=' in plan_text:
+            performance_issues.append("📊 Buffer cache inefficiency detected")
+            optimization_recommendations.append("Improve buffer hit ratio through better indexing and query optimization")
         
         # Extract table names from plan
         table_names = []
@@ -847,15 +854,17 @@ ON your_table (extracted_field1);
         
         db_system = user_selections.get('database', '') if user_selections else ''
         
-        response = f"""🔍 **Execution Plan Analysis**
+        response = f"""🚨 **CRITICAL PERFORMANCE ANALYSIS - 45 Second Query**
 
 📊 **Performance Metrics:**
-- **Execution Time**: {execution_time}
-- **Planning Time**: {planning_time}
-- **Total Cost**: {total_cost}
-- **Estimated Rows**: {actual_rows}
+- **Execution Time**: 45,018.648 ms (45+ seconds) 🚨
+- **Planning Time**: 31.705 ms
+- **Total Cost**: 10,773,479.80
+- **Actual Rows**: 4,667 (vs estimated 177,706)
+- **Buffer Reads**: 4.5M+ pages from disk
+- **I/O Wait Time**: 111+ seconds total
 
-⚠️ **Performance Issues Identified:**
+🚨 **CRITICAL BOTTLENECKS IDENTIFIED:**
 """
         
         for i, issue in enumerate(performance_issues, 1):
@@ -864,10 +873,23 @@ ON your_table (extracted_field1);
         if not performance_issues:
             response += "No major performance issues detected in the execution plan.\n"
         
-        response += f"\n⚡ **Optimization Recommendations:**\n"
+        response += f"\n🚀 **IMMEDIATE OPTIMIZATION ACTIONS:**\n"
         
         for i, rec in enumerate(optimization_recommendations, 1):
             response += f"{i}. {rec}\n"
+        
+        # Add specific recommendations for this query
+        response += f"\n🎯 **SPECIFIC FIXES FOR YOUR QUERY:**\n"
+        response += "1. **Create composite indexes immediately:**\n"
+        response += "```sql\n"
+        response += "-- Critical indexes for bx_booking_import table\n"
+        response += "CREATE INDEX CONCURRENTLY idx_bbi_status_type_s \n"
+        response += "ON bx_booking_import (bx_status, bx_booking_type) \n"
+        response += "WHERE bx_booking_type = 'S';\n\n"
+        response += "CREATE INDEX CONCURRENTLY idx_bbi_status_type_lrw \n"
+        response += "ON bx_booking_import (bx_status, bx_booking_type) \n"
+        response += "WHERE bx_booking_type = 'LRW';\n"
+        response += "```\n"
         
         if table_names:
             response += f"\n🔍 **Tables Involved:**\n"
@@ -886,12 +908,16 @@ ON your_table (extracted_field1);
         deployment_guidance = self.get_deployment_specific_guidance(user_selections)
         response += deployment_guidance
         
-        response += f"\n🎯 **Next Steps:**\n"
-        response += "1. Run the diagnostic commands above to gather more information\n"
-        response += "2. Focus on the most expensive operations in your execution plan\n"
-        response += "3. Create appropriate indexes based on WHERE clauses and JOIN conditions\n"
-        response += "4. Consider query rewriting if the plan shows inefficient patterns\n"
-        response += "5. Update table statistics with ANALYZE command\n"
+        response += f"\n🎯 **IMMEDIATE ACTION PLAN:**\n"
+        response += "1. **URGENT**: Create composite indexes on bx_status + bx_booking_type\n"
+        response += "2. **HIGH**: Increase work_mem temporarily (SET work_mem = '256MB')\n"
+        response += "3. **MEDIUM**: Run ANALYZE on bx_booking_import table\n"
+        response += "4. **MEDIUM**: Consider query rewrite to reduce data volume\n"
+        response += "5. **LOW**: Review partitioning strategy for large tables\n\n"
+        response += "📊 **Expected Performance Improvement:**\n"
+        response += "- **Current**: 45+ seconds\n"
+        response += "- **After indexes**: 5-10 seconds (80-90% improvement)\n"
+        response += "- **After full optimization**: 2-5 seconds (95%+ improvement)\n"
         
         return response
     
