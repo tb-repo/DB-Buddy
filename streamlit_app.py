@@ -1735,9 +1735,9 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
                     
                     status_text.text("✨ Generating recommendations...")
                     progress_bar.progress(75)
-                        
-                        if not response:
-                            response = f"""🔌 **AI Service Temporarily Unavailable**
+                    
+                    if not response:
+                        response = f"""🔌 **AI Service Temporarily Unavailable**
 
 ⚠️ I'm currently unable to connect to AI services, but I can still help!
 
@@ -1749,29 +1749,29 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
 **Your Request**: {prompt[:100]}{'...' if len(prompt) > 100 else ''}
 
 Please try again, or I'll provide manual guidance for your {st.session_state.current_issue_type} request."""
-                        
-                        progress_bar.progress(100)
-                        status_text.text("✅ Complete!")
-                        
-                        # Clear progress indicators
-                        progress_bar.empty()
-                        status_text.empty()
-                        
-                        # Display response with enhanced formatting
-                        if isinstance(response, str):
-                            st.markdown(response)
-                        else:
-                            # Handle streaming response
-                            response_placeholder = st.empty()
-                            full_response = ""
-                            for chunk in response:
-                                full_response += chunk
-                                response_placeholder.markdown(full_response + "▌")
-                            response_placeholder.markdown(full_response)
-                            response = full_response
-                        
-                        # Success notification
-                        st.toast("Response generated successfully!", icon="✅")
+                    
+                    progress_bar.progress(100)
+                    status_text.text("✅ Complete!")
+                    
+                    # Clear progress indicators
+                    progress_bar.empty()
+                    status_text.empty()
+                    
+                    # Display response with enhanced formatting
+                    if isinstance(response, str):
+                        st.markdown(response)
+                    else:
+                        # Handle streaming response
+                        response_placeholder = st.empty()
+                        full_response = ""
+                        for chunk in response:
+                            full_response += chunk
+                            response_placeholder.markdown(full_response + "▌")
+                        response_placeholder.markdown(full_response)
+                        response = full_response
+                    
+                    # Success notification
+                    st.toast("Response generated successfully!", icon="✅")
                         
                 except Exception as e:
                     progress_bar.empty()
