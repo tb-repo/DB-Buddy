@@ -2813,17 +2813,29 @@ Format your response with:
         
         # Get AI response using the appropriate provider with enhanced prompt
         if self.use_ai == 'openai':
-            return self.get_openai_response(system_prompt, "", user_input)  # Context already in system_prompt
+            return self.get_openai_response(system_prompt, "", sanitized_input)
         elif self.use_ai == 'anthropic':
-            return self.get_anthropic_response(system_prompt, "", user_input)
+            return self.get_anthropic_response(system_prompt, "", sanitized_input)
         elif self.use_ai == 'groq':
-            return self.get_groq_response(system_prompt, "", user_input)
+            return self.get_groq_response(system_prompt, "", sanitized_input)
         elif self.use_ai == 'huggingface':
-            return self.get_huggingface_response(system_prompt, "", user_input)
+            return self.get_huggingface_response(system_prompt, "", sanitized_input)
         elif self.use_ai == 'ollama':
-            return self.get_ollama_response(system_prompt, "", user_input)
+            return self.get_ollama_response(system_prompt, "", sanitized_input)
         
         return None
+    
+    def _sanitize_for_ai(self, text):
+        """Sanitize text before sending to AI to prevent injection"""
+        if not text:
+            return text
+        
+        # Remove potential system prompt injection attempts
+        sanitized = re.sub(r'system\s*:', 'user query:', text, flags=re.IGNORECASE)
+        sanitized = re.sub(r'assistant\s*:', 'user says:', sanitized, flags=re.IGNORECASE)
+        sanitized = re.sub(r'human\s*:', 'user asks:', sanitized, flags=re.IGNORECASE)
+        
+        return sanitized[:4000]  # Limit length to prevent token exhaustion
     
     def is_database_related_query(self, user_input):
         """Check if the user query is database-related with conversational context awareness"""
@@ -3285,7 +3297,11 @@ db_buddy = DBBuddy()
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    response = render_template('index.html')
+    # Add security headers
+    for header, value in db_buddy.security_validator.get_security_headers().items():
+        response.headers[header] = value
+    return response
 
 @app.route('/dashboard')
 def dashboard():
@@ -3311,8 +3327,14 @@ def process_answer():
     answer = data.get('answer')
     image_data = data.get('image_data')  # Base64 encoded image
     
-    response = db_buddy.process_answer(session_id, answer, image_data)
-    return jsonify({'response': response})
+    response_text = db_buddy.process_answer(session_id, answer, image_data)
+    response = jsonify({'response': response_text})
+    
+    # Add security headers
+    for header, value in db_buddy.security_validator.get_security_headers().items():
+        response.headers[header] = value
+    
+    return response
 
 @app.route('/generate_report/<session_id>', methods=['GET'])
 def generate_report(session_id):

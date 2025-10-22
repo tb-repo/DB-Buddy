@@ -1960,8 +1960,9 @@ Please try again, or I'll provide manual guidance for your {st.session_state.cur
                     
                     # Display response with enhanced formatting
                     if isinstance(response, str):
-                        # Add IDP AI Policy compliance footer to AI responses
+                        # OWASP LLM Security: Validate and sanitize output
                         if response and not response.startswith("🏢 **DB-Buddy"):
+                            response = db_buddy.security_validator.validate_output(response)
                             response += "\n\n---\n🛡️ *This response follows IDP's SMART AI Golden Rules. Always verify AI outputs for accuracy and relevance before implementation.*"
                         st.markdown(response)
                     else:
@@ -1971,8 +1972,9 @@ Please try again, or I'll provide manual guidance for your {st.session_state.cur
                         for chunk in response:
                             full_response += chunk
                             response_placeholder.markdown(full_response + "▌")
-                        # Add compliance footer to streaming response
+                        # OWASP LLM Security: Validate and sanitize streaming response
                         if full_response and not full_response.startswith("🏢 **DB-Buddy"):
+                            full_response = db_buddy.security_validator.validate_output(full_response)
                             full_response += "\n\n---\n🛡️ *This response follows IDP's SMART AI Golden Rules. Always verify AI outputs for accuracy and relevance before implementation.*"
                         response_placeholder.markdown(full_response)
                         response = full_response
