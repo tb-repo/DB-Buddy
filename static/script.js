@@ -89,12 +89,47 @@ function startConversation(issueType) {
     });
 }
 
+// IDP AI Policy - Data Security Validation
+function validateInputSecurity(userInput) {
+    const sensitivePatterns = [
+        /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g,  // Credit card
+        /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,  // Email
+        /\b\d{3}[\s-]?\d{2}[\s-]?\d{4}\b/g,  // SSN pattern
+        /password[\s]*[:=][\s]*[^\s]+/gi,  // Password
+        /api[_\s]*key[\s]*[:=][\s]*[^\s]+/gi,  // API key
+    ];
+    
+    for (let pattern of sensitivePatterns) {
+        if (pattern.test(userInput)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 function sendAnswer() {
     const input = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
     const answer = input.value.trim();
     
     if ((!answer && !currentImageData) || isTyping) return;
+    
+    // Input validation
+    if (answer && answer.length < 3) {
+        alert('⚠️ Please enter a meaningful message (at least 3 characters).');
+        return;
+    }
+    
+    if (answer && answer.length > 10000) {
+        alert('⚠️ Message too long. Please limit to 10,000 characters.');
+        return;
+    }
+    
+    // IDP AI Policy - Data Security Check
+    if (answer && !validateInputSecurity(answer)) {
+        alert('🛡️ IDP AI Policy Violation: Sensitive data detected. Please remove personal, confidential, or sensitive information before proceeding.');
+        return;
+    }
     
     // Disable input while processing
     input.disabled = true;
@@ -154,6 +189,12 @@ function addMessage(text, sender) {
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
+    
+    // Add IDP AI Policy compliance footer to AI responses
+    if (sender === 'bot' && text && !text.startsWith('🏢 **DB-Buddy')) {
+        text += '\n\n---\n🛡️ *This response follows IDP\'s SMART AI Golden Rules. Always verify AI outputs for accuracy and relevance before implementation.*';
+    }
+    
     contentDiv.textContent = text;
     
     messageDiv.appendChild(contentDiv);

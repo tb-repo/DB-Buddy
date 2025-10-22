@@ -15,6 +15,7 @@ from dynamic_ai_engine import DynamicAIEngine
 from enterprise_sql_parser import EnterpriseSQLParser
 import base64
 import re
+import time
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -46,6 +47,15 @@ class DBBuddy:
             'capacity': 'database capacity planning and sizing',
             'security': 'database security hardening and compliance'
         }
+        # Rate limiting and security
+        self.rate_limit_tracker = {}
+        self.sensitive_patterns = [
+            r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b',  # Credit card
+            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',  # Email
+            r'\b\d{3}[\s-]?\d{2}[\s-]?\d{4}\b',  # SSN pattern
+            r'password[\s]*[:=][\s]*[^\s]+',  # Password
+            r'api[_\s]*key[\s]*[:=][\s]*[^\s]+',  # API key
+        ]
     
     def check_ollama_available(self):
         import os
@@ -1200,9 +1210,51 @@ I'll help you implement comprehensive database security and meet compliance requ
         
         return base_context + "Please share more details about your specific needs."
     
+    def check_rate_limit(self, user_id="default"):
+        """Enhanced rate limiting with user session tracking"""
+        current_time = time.time()
+        if user_id not in self.rate_limit_tracker:
+            self.rate_limit_tracker[user_id] = []
+        
+        # Remove requests older than 1 minute
+        self.rate_limit_tracker[user_id] = [
+            req_time for req_time in self.rate_limit_tracker[user_id] 
+            if current_time - req_time < 60
+        ]
+        
+        # Limit: 10 requests per minute
+        if len(self.rate_limit_tracker[user_id]) >= 10:
+            return False
+        
+        self.rate_limit_tracker[user_id].append(current_time)
+        return True
+    
+    def validate_input_security(self, user_input):
+        """IDP AI Policy - Data Security Validation"""
+        for pattern in self.sensitive_patterns:
+            if re.search(pattern, user_input, re.IGNORECASE):
+                return False, "🛡️ **IDP AI Policy Violation**: Sensitive data detected. Please remove personal, confidential, or sensitive information before proceeding."
+        return True, None
+    
     def process_answer(self, session_id, answer, image_data=None):
         if session_id not in self.conversations:
             return "Session not found. Please start a new conversation."
+        
+        # Input validation
+        if not answer or len(answer.strip()) < 3:
+            return "⚠️ Please enter a meaningful message (at least 3 characters)."
+        
+        if len(answer) > 10000:
+            return "⚠️ Message too long. Please limit to 10,000 characters."
+        
+        # Rate limiting check
+        if not self.check_rate_limit(session_id):
+            return "⚠️ Rate limit exceeded. Please wait a moment before sending another message."
+        
+        # IDP AI Policy - Data Security Check
+        is_secure, security_error = self.validate_input_security(answer)
+        if not is_secure:
+            return security_error
         
         conv = self.conversations[session_id]
         
@@ -1241,6 +1293,10 @@ I'll help you implement comprehensive database security and meet compliance requ
         
         # Generate intelligent response
         bot_response = self.get_intelligent_response(conv, answer)
+        
+        # Add IDP AI Policy compliance footer to AI responses
+        if bot_response and not bot_response.startswith("🏢 **DB-Buddy"):
+            bot_response += "\n\n---\n🛡️ *This response follows IDP's SMART AI Golden Rules. Always verify AI outputs for accuracy and relevance before implementation.*"
         
         # Store complete conversation exchange
         conv['conversation_history'].append({

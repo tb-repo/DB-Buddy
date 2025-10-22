@@ -72,6 +72,103 @@ body {
     color: white;
 }
 
+/* IDP AI Policy Banner */
+.idp-policy-banner {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    padding: 1.5rem;
+    margin: 0;
+    border-bottom: 2px solid #ef4444;
+    color: white;
+}
+
+.policy-content {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.policy-content h3 {
+    color: white;
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.policy-rules {
+    background: rgba(255,255,255,0.1);
+    padding: 1.2rem;
+    border-radius: 10px;
+    color: white;
+}
+
+.policy-rules p {
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+.rules-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.rule-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.rule-item strong {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.transparency-rule {
+    text-align: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255,255,255,0.3);
+    font-weight: 600;
+}
+
+.transparency-rule strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Enterprise Workflow */
+.enterprise-workflow {
+    background: rgba(59, 130, 246, 0.1);
+    padding: 1.2rem;
+    border-radius: 15px;
+    margin-top: 1rem;
+    border: 2px solid #3b82f6;
+}
+
+.workflow-content {
+    text-align: center;
+    color: var(--text-primary);
+}
+
+.workflow-content h4 {
+    color: var(--text-primary);
+    margin-bottom: 0.8rem;
+    font-size: 1.1rem;
+}
+
+.workflow-content p {
+    color: var(--text-primary);
+    opacity: 0.9;
+    margin: 0;
+    font-weight: 500;
+}
+
 /* Main Container */
 .main-container {
     max-width: 1400px;
@@ -990,6 +1087,19 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+    .idp-policy-banner {
+        padding: 1rem;
+    }
+    
+    .rules-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .policy-content h3 {
+        font-size: 1.1rem;
+    }
+    
     .main-container {
         padding: 1rem;
     }
