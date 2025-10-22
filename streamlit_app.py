@@ -7,6 +7,110 @@ st.set_page_config(
     layout="wide"
 )
 
+# Add custom CSS for proper scrolling and viewport management
+st.markdown("""
+<style>
+/* Main container scrolling */
+.main .block-container {
+    max-height: 100vh;
+    overflow-y: auto;
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+}
+
+/* Chat container with fixed height and scrolling */
+.stChatMessage {
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Ensure chat input is always visible */
+.stChatInput {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    z-index: 999;
+    padding: 1rem 0;
+    border-top: 1px solid #e0e0e0;
+}
+
+/* Chat messages container with scrolling */
+.chat-container {
+    max-height: 60vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 1rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+}
+
+/* Sidebar scrolling */
+.css-1d391kg {
+    max-height: 100vh;
+    overflow-y: auto;
+}
+
+/* Code blocks with horizontal scrolling */
+pre {
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    .main .block-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        max-height: 100vh;
+    }
+    
+    .chat-container {
+        max-height: 50vh;
+    }
+    
+    /* Mobile viewport fix */
+    .stChatInput {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        padding: 1rem;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    }
+}
+
+/* Ensure content doesn't get hidden behind fixed elements */
+body {
+    padding-bottom: 100px;
+}
+
+/* Chat message styling for better readability */
+.stChatMessage > div {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+/* Table responsiveness */
+table {
+    width: 100%;
+    overflow-x: auto;
+    display: block;
+    white-space: nowrap;
+}
+
+@media (min-width: 769px) {
+    table {
+        display: table;
+        white-space: normal;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
 import warnings
 warnings.filterwarnings('ignore', category=SyntaxWarning)
 import requests
@@ -1379,16 +1483,55 @@ st.markdown("""<div style='background: linear-gradient(135deg, #1e40af, #1e3a8a)
     </div>
 </div>""", unsafe_allow_html=True)
 
-# Main Content Area
+# Main Content Area with proper height management
 if not st.session_state.show_history:
     if st.session_state.current_issue_type and st.session_state.messages:
         # Show chat interface when conversation is active
         st.subheader("Chat")
         
-        # Display messages
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+        # Add viewport height management
+        st.markdown("""
+        <div id="chat-viewport" style="height: calc(100vh - 300px); overflow-y: auto; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 10px; margin-bottom: 1rem;">
+        """, unsafe_allow_html=True)
+        
+        # Chat messages container with scrolling
+        chat_container = st.container()
+        with chat_container:
+            # Display messages with proper scrolling
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+        
+        # Close chat viewport and add auto-scroll
+        st.markdown("""
+        </div>
+        <script>
+        // Auto-scroll to bottom of chat
+        function scrollToBottom() {
+            var chatViewport = document.getElementById('chat-viewport');
+            if (chatViewport) {
+                chatViewport.scrollTop = chatViewport.scrollHeight;
+            }
+        }
+        
+        // Scroll on page load
+        setTimeout(scrollToBottom, 100);
+        
+        // Scroll when new content is added
+        var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'childList') {
+                    setTimeout(scrollToBottom, 50);
+                }
+            });
+        });
+        
+        var chatViewport = document.getElementById('chat-viewport');
+        if (chatViewport) {
+            observer.observe(chatViewport, { childList: true, subtree: true });
+        }
+        </script>
+        """, unsafe_allow_html=True)
     else:
         # Show welcome screen when no conversation is active
         st.markdown("""<div style='text-align: center; padding: 1rem 0;'>
@@ -1753,6 +1896,18 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
         with st.chat_message("user", avatar="👤"):
             st.markdown(prompt)
         
+        # Scroll to show new user message
+        st.markdown("""
+        <script>
+        setTimeout(function() {
+            var chatElements = document.querySelectorAll('[data-testid="stChatMessage"]');
+            if (chatElements.length > 0) {
+                chatElements[chatElements.length - 1].scrollIntoView({behavior: 'smooth'});
+            }
+        }, 50);
+        </script>
+        """, unsafe_allow_html=True)
+        
         # Generate intelligent response with streaming
         with st.chat_message("assistant", avatar="🤖"):
             if st.session_state.current_issue_type:
@@ -1846,4 +2001,17 @@ I encountered an issue while analyzing your request. Here's what you can do:
             
             # Add assistant response to messages
             st.session_state.messages.append({"role": "assistant", "content": response})
+            
+            # Auto-scroll to bottom after new message
+            st.markdown("""
+            <script>
+            setTimeout(function() {
+                window.scrollTo(0, document.body.scrollHeight);
+                var chatElements = document.querySelectorAll('[data-testid="stChatMessage"]');
+                if (chatElements.length > 0) {
+                    chatElements[chatElements.length - 1].scrollIntoView({behavior: 'smooth'});
+                }
+            }, 100);
+            </script>
+            """, unsafe_allow_html=True)
 
