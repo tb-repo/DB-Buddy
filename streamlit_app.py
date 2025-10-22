@@ -126,6 +126,10 @@ import io
 import asyncio
 import time
 from typing import Generator
+from security_validator import LLMSecurityValidator
+from vector_security import VectorSecurityValidator
+from misinformation_validator import MisinformationValidator
+from consumption_limiter import ConsumptionLimiter
 
 # Enhanced API key management with caching
 @st.cache_data(ttl=3600)  # Cache for 1 hour
@@ -149,6 +153,10 @@ def get_db_buddy():
 class StreamlitDBBuddy:
     def __init__(self):
         self.use_ai = self.check_ai_available()
+        self.security_validator = LLMSecurityValidator()
+        self.vector_security = VectorSecurityValidator()
+        self.misinformation_validator = MisinformationValidator()
+        self.consumption_limiter = ConsumptionLimiter()
         self.service_descriptions = {
             'troubleshooting': 'database troubleshooting and error resolution',
             'query': 'SQL query optimization and performance tuning',
@@ -320,11 +328,17 @@ IMPORTANT: Always act as a proactive expert who requests comprehensive diagnosti
     def get_claude_response_streaming(self, system_prompt, context, user_input):
         """Claude response with streaming support"""
         try:
+            # Supply chain validation
+            model = "claude-3-5-sonnet-20241022"
+            if not self.security_validator.validate_model_endpoint('anthropic', model, 'api.anthropic.com'):
+                st.error("Supply chain security: Untrusted model/endpoint")
+                return None
+            
             import anthropic
             client = anthropic.Anthropic(api_key=get_api_key('ANTHROPIC_API_KEY'))
             
             with client.messages.stream(
-                model="claude-3-5-sonnet-20241022",
+                model=model,
                 max_tokens=1200,
                 system=system_prompt,
                 messages=[{"role": "user", "content": f"Context: {context}\nQuery: {user_input}"}]
@@ -341,28 +355,30 @@ IMPORTANT: Always act as a proactive expert who requests comprehensive diagnosti
     def get_groq_response_streaming(self, system_prompt, context, user_input):
         """Groq response with enhanced parameters"""
         try:
+            # Supply chain validation
+            endpoint = 'https://api.groq.com/openai/v1/chat/completions'
+            model = 'llama3-8b-8192'
+            if not self.security_validator.validate_model_endpoint('groq', model, endpoint):
+                st.error("Supply chain security: Untrusted model/endpoint")
+                return None
+            
             headers = {
                 'Authorization': f'Bearer {get_api_key("GROQ_API_KEY")}',
                 'Content-Type': 'application/json'
             }
             
             payload = {
-                'model': 'llama3-8b-8192',
+                'model': model,
                 'messages': [
                     {'role': 'system', 'content': system_prompt},
                     {'role': 'user', 'content': f"Context: {context}\nUser Request: {user_input}"}
                 ],
                 'temperature': 0.1,
                 'max_tokens': 1000,
-                'stream': False  # Streamlit doesn't handle streaming well with requests
+                'stream': False
             }
             
-            response = requests.post(
-                'https://api.groq.com/openai/v1/chat/completions',
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
+            response = requests.post(endpoint, headers=headers, json=payload, timeout=30)
             
             if response.status_code == 200:
                 result = response.json()
@@ -1634,6 +1650,29 @@ if not st.session_state.show_history:
             </div>
             """, unsafe_allow_html=True)
         
+        # AI Reliability Notice
+        with st.expander("🚨 AI Reliability & Verification Guidelines", expanded=False):
+            st.markdown(db_buddy.misinformation_validator.get_overreliance_warning())
+        
+        # Usage Statistics
+        if st.session_state.session_id:
+            usage_stats = db_buddy.consumption_limiter.get_usage_stats(st.session_state.session_id)
+            with st.expander("📊 Usage Statistics", expanded=False):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Requests (Last Hour)", usage_stats['requests_last_hour'], 
+                             delta=f"{usage_stats['limits']['requests_per_hour'] - usage_stats['requests_last_hour']} remaining")
+                with col2:
+                    st.metric("Tokens Used Today", f"{usage_stats['tokens_used_today']:.0f}", 
+                             delta=f"{usage_stats['limits']['tokens_per_day'] - usage_stats['tokens_used_today']:.0f} remaining")
+                with col3:
+                    st.metric("Active Requests", usage_stats['active_requests'])
+                
+                if usage_stats['requests_last_hour'] > usage_stats['limits']['requests_per_hour'] * 0.8:
+                    st.warning("⚠️ Approaching hourly request limit")
+                if usage_stats['tokens_used_today'] > usage_stats['limits']['tokens_per_day'] * 0.8:
+                    st.warning("⚠️ Approaching daily token limit")
+        
         # How It Works Section
         st.markdown("""<div style='margin: 4rem 0 2rem 0;'>
             <h2 style='text-align: center; font-size: 2rem; margin-bottom: 2rem; color: #374151;'>How It Works</h2>
@@ -1808,20 +1847,25 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
             st.warning("⚠️ Message too long. Please limit to 10,000 characters.")
             st.stop()
         
-        # IDP AI Policy - Data Security Check
-        sensitive_patterns = [
-            r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b',  # Credit card
-            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',  # Email
-            r'\b\d{3}[\s-]?\d{2}[\s-]?\d{4}\b',  # SSN pattern
-            r'password[\s]*[:=][\s]*[^\s]+',  # Password
-            r'api[_\s]*key[\s]*[:=][\s]*[^\s]+',  # API key
-        ]
+        # OWASP LLM Security: Comprehensive input validation
+        is_valid, error_message = db_buddy.security_validator.validate_input(prompt, st.session_state.session_id)
+        if not is_valid:
+            st.error(error_message)
+            st.stop()
         
-        import re
-        for pattern in sensitive_patterns:
-            if re.search(pattern, prompt, re.IGNORECASE):
-                st.error("🛡️ **IDP AI Policy Violation**: Sensitive data detected. Please remove personal, confidential, or sensitive information before proceeding.")
-                st.stop()
+        # Vector and Embedding Security: Validate input for RAG attacks
+        vector_valid, vector_error = db_buddy.vector_security.validate_vector_input(prompt, st.session_state.session_id)
+        if not vector_valid:
+            st.error(vector_error)
+            st.stop()
+        
+        # Unbounded Consumption Protection
+        consumption_allowed, consumption_error = db_buddy.consumption_limiter.check_request_allowed(
+            st.session_state.session_id, "streamlit_user", prompt
+        )
+        if not consumption_allowed:
+            st.error(f"🚫 Resource Limit: {consumption_error}")
+            st.stop()
         
         # Rate limiting check
         if not db_buddy.check_rate_limit():
@@ -1913,6 +1957,10 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
             if st.session_state.current_issue_type:
                 user_selections = st.session_state.conversation_context.get('user_selections', {})
                 
+                # Start request tracking
+                request_id = f"req_{int(time.time())}_{hash(prompt) % 10000}"
+                db_buddy.consumption_limiter.start_request(st.session_state.session_id, request_id)
+                
                 # Enhanced progress indicators
                 progress_bar = st.progress(0)
                 status_text = st.empty()
@@ -1963,8 +2011,16 @@ Please try again, or I'll provide manual guidance for your {st.session_state.cur
                         # OWASP LLM Security: Validate and sanitize output
                         if response and not response.startswith("🏢 **DB-Buddy"):
                             response = db_buddy.security_validator.validate_output(response)
+                            
+                            # Misinformation validation and enhancement
+                            validation_result = db_buddy.misinformation_validator.validate_response(response)
+                            if not validation_result['is_valid']:
+                                st.warning(f"⚠️ Response Quality Alert: {', '.join(validation_result['warnings'])}")
+                            
+                            response = db_buddy.misinformation_validator.enhance_response_reliability(response)
                             response += "\n\n---\n🛡️ *This response follows IDP's SMART AI Golden Rules. Always verify AI outputs for accuracy and relevance before implementation.*"
-                        st.markdown(response)
+                        # Safe rendering with HTML escaping already applied in validator
+                        st.markdown(response, unsafe_allow_html=False)
                     else:
                         # Handle streaming response
                         response_placeholder = st.empty()
@@ -1975,14 +2031,30 @@ Please try again, or I'll provide manual guidance for your {st.session_state.cur
                         # OWASP LLM Security: Validate and sanitize streaming response
                         if full_response and not full_response.startswith("🏢 **DB-Buddy"):
                             full_response = db_buddy.security_validator.validate_output(full_response)
+                            
+                            # Misinformation validation and enhancement
+                            validation_result = db_buddy.misinformation_validator.validate_response(full_response)
+                            if not validation_result['is_valid']:
+                                st.warning(f"⚠️ Response Quality Alert: {', '.join(validation_result['warnings'])}")
+                            
+                            full_response = db_buddy.misinformation_validator.enhance_response_reliability(full_response)
                             full_response += "\n\n---\n🛡️ *This response follows IDP's SMART AI Golden Rules. Always verify AI outputs for accuracy and relevance before implementation.*"
-                        response_placeholder.markdown(full_response)
+                        response_placeholder.markdown(full_response, unsafe_allow_html=False)
                         response = full_response
+                    
+                    # End request tracking
+                    db_buddy.consumption_limiter.end_request(
+                        st.session_state.session_id, request_id, 
+                        len(response), len(response.split()) * 1.3
+                    )
                     
                     # Success notification
                     st.toast("Response generated successfully!", icon="✅")
                         
                 except Exception as e:
+                    # End request tracking on error
+                    db_buddy.consumption_limiter.end_request(st.session_state.session_id, request_id)
+                    
                     progress_bar.empty()
                     status_text.empty()
                     st.error(f"Error generating response: {str(e)}")

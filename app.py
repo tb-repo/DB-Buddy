@@ -13,6 +13,10 @@ from enhanced_sql_tools import EnhancedSQLTools
 from enhanced_responses import EnhancedResponses
 from dynamic_ai_engine import DynamicAIEngine
 from enterprise_sql_parser import EnterpriseSQLParser
+from security_validator import LLMSecurityValidator
+from vector_security import VectorSecurityValidator
+from misinformation_validator import MisinformationValidator
+from consumption_limiter import ConsumptionLimiter
 import base64
 import re
 import time
@@ -35,6 +39,10 @@ class DBBuddy:
         self.nl_sql_tool = AskYourDatabaseTool()
         self.enhanced_sql = EnhancedSQLTools(self.use_ai)
         self.dynamic_ai = DynamicAIEngine(self.use_ai)
+        self.security_validator = LLMSecurityValidator()
+        self.vector_security = VectorSecurityValidator()
+        self.misinformation_validator = MisinformationValidator()
+        self.consumption_limiter = ConsumptionLimiter()
         # Enhanced AI SQL capabilities inspired by leading tools
         self.sql_engines = ['postgresql', 'mysql', 'sqlite', 'oracle', 'sqlserver', 'mongodb']
         self.query_cache = {}  # Cache for optimized queries
@@ -1256,6 +1264,24 @@ I'll help you implement comprehensive database security and meet compliance requ
         if not is_secure:
             return security_error
         
+        # OWASP LLM Security: Comprehensive input validation
+        is_valid, error_message = self.security_validator.validate_input(answer, session_id)
+        if not is_valid:
+            return error_message
+        
+        # Vector and Embedding Security: Validate input for RAG attacks
+        vector_valid, vector_error = self.vector_security.validate_vector_input(answer, session_id)
+        if not vector_valid:
+            return vector_error
+        
+        # Unbounded Consumption Protection
+        ip_address = request.environ.get('REMOTE_ADDR', 'unknown') if 'request' in globals() else 'flask_user'
+        consumption_allowed, consumption_error = self.consumption_limiter.check_request_allowed(
+            session_id, ip_address, answer
+        )
+        if not consumption_allowed:
+            return f"🚫 **Resource Limit Exceeded**: {consumption_error}\n\nPlease wait before making additional requests or reduce request complexity."
+        
         conv = self.conversations[session_id]
         
         # Initialize conversation history if not exists
@@ -1291,11 +1317,27 @@ I'll help you implement comprehensive database security and meet compliance requ
             selections = self.parse_lov_selections(answer)
             conv['user_selections'].update(selections)
         
-        # Generate intelligent response
-        bot_response = self.get_intelligent_response(conv, answer)
+        # Start request tracking
+        request_id = f"req_{int(time.time())}_{hash(answer) % 10000}"
+        self.consumption_limiter.start_request(session_id, request_id)
+        
+        try:
+            # Generate intelligent response
+            bot_response = self.get_intelligent_response(conv, answer)
+        finally:
+            # End request tracking
+            response_length = len(bot_response) if bot_response else 0
+            estimated_tokens = response_length / 4 if bot_response else 0
+            self.consumption_limiter.end_request(session_id, request_id, response_length, estimated_tokens)
         
         # Add IDP AI Policy compliance footer to AI responses
         if bot_response and not bot_response.startswith("🏢 **DB-Buddy"):
+            # Misinformation validation and enhancement
+            validation_result = self.misinformation_validator.validate_response(bot_response)
+            if not validation_result['is_valid']:
+                bot_response = f"⚠️ **Response Quality Alert**: {', '.join(validation_result['warnings'])}\n\n{bot_response}"
+            
+            bot_response = self.misinformation_validator.enhance_response_reliability(bot_response)
             bot_response += "\n\n---\n🛡️ *This response follows IDP's SMART AI Golden Rules. Always verify AI outputs for accuracy and relevance before implementation.*"
         
         # Store complete conversation exchange
