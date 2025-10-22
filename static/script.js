@@ -184,6 +184,13 @@ function sendAnswer() {
 
 function addMessage(text, sender) {
     const messagesContainer = document.getElementById('chatMessages');
+    
+    // Remove typing indicator if present
+    const typingIndicator = document.getElementById('typingIndicator');
+    if (typingIndicator) {
+        typingIndicator.remove();
+    }
+    
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender}-message`;
     
@@ -195,24 +202,57 @@ function addMessage(text, sender) {
         text += '\n\n---\n🛡️ *This response follows IDP\'s SMART AI Golden Rules. Always verify AI outputs for accuracy and relevance before implementation.*';
     }
     
-    contentDiv.textContent = text;
+    // Handle markdown-like formatting for better readability
+    const formattedText = formatMessageText(text);
+    contentDiv.innerHTML = formattedText;
     
     messageDiv.appendChild(contentDiv);
     messagesContainer.appendChild(messageDiv);
     
-    // Smooth scroll to bottom
-    messagesContainer.scrollTo({
-        top: messagesContainer.scrollHeight,
-        behavior: 'smooth'
-    });
+    // Smooth scroll to bottom with delay for better UX
+    setTimeout(() => {
+        messagesContainer.scrollTo({
+            top: messagesContainer.scrollHeight,
+            behavior: 'smooth'
+        });
+    }, 100);
+}
+
+function formatMessageText(text) {
+    // Basic formatting for better readability
+    let formatted = text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+        .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
+        .replace(/`(.*?)`/g, '<code>$1</code>') // Inline code
+        .replace(/\n/g, '<br>') // Line breaks
+        .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>'); // Code blocks
+    
+    return formatted;
 }
 
 function showTypingIndicator() {
     isTyping = true;
-    const indicator = document.getElementById('typingIndicator');
-    indicator.style.display = 'flex';
     
+    // Create typing indicator dynamically
     const messagesContainer = document.getElementById('chatMessages');
+    const existingIndicator = document.getElementById('typingIndicator');
+    if (existingIndicator) {
+        existingIndicator.remove();
+    }
+    
+    const indicator = document.createElement('div');
+    indicator.id = 'typingIndicator';
+    indicator.className = 'typing-indicator';
+    indicator.innerHTML = `
+        <div class="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        <span class="typing-text">DB-Buddy is analyzing...</span>
+    `;
+    
+    messagesContainer.appendChild(indicator);
     messagesContainer.scrollTo({
         top: messagesContainer.scrollHeight,
         behavior: 'smooth'
@@ -222,7 +262,9 @@ function showTypingIndicator() {
 function hideTypingIndicator() {
     isTyping = false;
     const indicator = document.getElementById('typingIndicator');
-    indicator.style.display = 'none';
+    if (indicator) {
+        indicator.remove();
+    }
 }
 
 function handleKeyPress(event) {
@@ -239,7 +281,7 @@ function handleKeyPress(event) {
         sendAnswer();
         // Reset textarea height after sending
         setTimeout(() => {
-            textarea.style.height = '50px';
+            textarea.style.height = '60px';
         }, 100);
     }
 }

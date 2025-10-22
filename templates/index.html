@@ -339,14 +339,7 @@
             </div>
             
             <div class="chat-messages" id="chatMessages">
-                <div class="typing-indicator" id="typingIndicator" style="display: none;">
-                    <div class="typing-dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </div>
-                    <span class="typing-text">DB-Buddy is thinking...</span>
-                </div>
+                <!-- Messages will be dynamically added here -->
             </div>
             
             <!-- Natural Language SQL Panel -->
@@ -386,7 +379,7 @@
                     <button onclick="document.getElementById('imageInput').click()" class="attachment-btn" title="Upload Screenshot">
                         <i class="fas fa-image"></i>
                     </button>
-                    <textarea id="userInput" placeholder="Type your message here... (Shift+Enter for new line, Enter to send)" onkeydown="handleKeyPress(event)" rows="1"></textarea>
+                    <textarea id="userInput" placeholder="Type your message here... (Shift+Enter for new line, Enter to send)" onkeydown="handleKeyPress(event)" rows="2"></textarea>
                     <button onclick="generateReport()" class="report-btn" title="Generate PDF Report">
                         <i class="fas fa-file-pdf"></i>
                     </button>
