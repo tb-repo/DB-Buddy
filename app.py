@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, render_template, send_file, make_response
 import json
 import requests
 import os
@@ -3339,7 +3339,7 @@ db_buddy = DBBuddy()
 
 @app.route('/')
 def index():
-    response = render_template('index.html')
+    response = make_response(render_template('index.html'))
     # Add security headers
     for header, value in db_buddy.security_validator.get_security_headers().items():
         response.headers[header] = value
