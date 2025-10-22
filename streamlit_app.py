@@ -1249,6 +1249,35 @@ elif st.session_state.last_reset != datetime.now().date():
 st.title("🗄️ DB-Buddy - Official DBM ChatOps")
 st.markdown("**Enterprise Database Operations Assistant** | L1/L2 Support Before Escalation | Official DBM Team Tool")
 
+# IDP AI Policy Compliance Notice
+st.markdown("""<div style='background: linear-gradient(135deg, #dc2626, #b91c1c); padding: 1.5rem; border-radius: 15px; margin-bottom: 2rem; border: 2px solid #ef4444;'>
+    <h3 style='color: white; margin-bottom: 1rem; font-size: 1.3rem;'>🛡️ IDP AI Policy Compliance</h3>
+    <div style='background: rgba(255,255,255,0.1); padding: 1.2rem; border-radius: 10px; color: white;'>
+        <p style='margin-bottom: 1rem; font-weight: 600;'>Follow the SMART AI Golden Rules to help protect IDP:</p>
+        <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.9rem;'>
+            <div>
+                <strong>🔒 Secure Data, Secure Trust</strong><br/>
+                Never enter sensitive, personal, or confidential company data into AI tools.
+            </div>
+            <div>
+                <strong>⚖️ Manage Use Responsibly</strong><br/>
+                Start with clear purpose. Inform your team about AI usage.
+            </div>
+            <div>
+                <strong>✅ Accountable for Outcomes</strong><br/>
+                Always verify AI outputs. You own the outcomes.
+            </div>
+            <div>
+                <strong>🔍 Review, Monitor, Improve</strong><br/>
+                Pilot first. Monitor performance. Keep improving.
+            </div>
+        </div>
+        <div style='text-align: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.3);'>
+            <strong>🤝 Transparent and Ethical:</strong> Check for bias. Be open about AI use.
+        </div>
+    </div>
+</div>""", unsafe_allow_html=True)
+
 # Sidebar for service selection and history
 with st.sidebar:
     st.header("Select Service")
@@ -1340,7 +1369,7 @@ with st.sidebar:
         else:
             st.write("No past conversations found.")
 
-# Call to Action at top
+# Call to Action
 st.markdown("""<div style='background: linear-gradient(135deg, #1e40af, #1e3a8a); padding: 2rem; border-radius: 20px; margin-bottom: 2rem; text-align: center; color: white; border: 2px solid #3b82f6;'>
     <h2 style='color: white; margin-bottom: 1rem; font-size: 1.8rem;'>🏢 Official DBM Team ChatOps</h2>
     <p style='font-size: 1.1rem; margin-bottom: 1.5rem; opacity: 0.9;'>L1/L2 Database Operations Support - Resolve 80% of issues before DBM escalation</p>
@@ -1636,6 +1665,21 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
             st.warning("⚠️ Message too long. Please limit to 10,000 characters.")
             st.stop()
         
+        # IDP AI Policy - Data Security Check
+        sensitive_patterns = [
+            r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b',  # Credit card
+            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',  # Email
+            r'\b\d{3}[\s-]?\d{2}[\s-]?\d{4}\b',  # SSN pattern
+            r'password[\s]*[:=][\s]*[^\s]+',  # Password
+            r'api[_\s]*key[\s]*[:=][\s]*[^\s]+',  # API key
+        ]
+        
+        import re
+        for pattern in sensitive_patterns:
+            if re.search(pattern, prompt, re.IGNORECASE):
+                st.error("🛡️ **IDP AI Policy Violation**: Sensitive data detected. Please remove personal, confidential, or sensitive information before proceeding.")
+                st.stop()
+        
         # Rate limiting check
         if not db_buddy.check_rate_limit():
             st.warning("⚠️ Rate limit exceeded. Please wait a moment before sending another message.")
@@ -1748,6 +1792,8 @@ if not st.session_state.show_history and st.session_state.current_issue_type and
 
 **Your Request**: {prompt[:100]}{'...' if len(prompt) > 100 else ''}
 
+🛡️ **IDP AI Policy Reminder**: This tool follows IDP's SMART AI Golden Rules. All outputs are generated following secure, responsible AI practices.
+
 Please try again, or I'll provide manual guidance for your {st.session_state.current_issue_type} request."""
                     
                     progress_bar.progress(100)
@@ -1759,6 +1805,9 @@ Please try again, or I'll provide manual guidance for your {st.session_state.cur
                     
                     # Display response with enhanced formatting
                     if isinstance(response, str):
+                        # Add IDP AI Policy compliance footer to AI responses
+                        if response and not response.startswith("🏢 **DB-Buddy"):
+                            response += "\n\n---\n🛡️ *This response follows IDP's SMART AI Golden Rules. Always verify AI outputs for accuracy and relevance before implementation.*"
                         st.markdown(response)
                     else:
                         # Handle streaming response
@@ -1767,6 +1816,9 @@ Please try again, or I'll provide manual guidance for your {st.session_state.cur
                         for chunk in response:
                             full_response += chunk
                             response_placeholder.markdown(full_response + "▌")
+                        # Add compliance footer to streaming response
+                        if full_response and not full_response.startswith("🏢 **DB-Buddy"):
+                            full_response += "\n\n---\n🛡️ *This response follows IDP's SMART AI Golden Rules. Always verify AI outputs for accuracy and relevance before implementation.*"
                         response_placeholder.markdown(full_response)
                         response = full_response
                     
