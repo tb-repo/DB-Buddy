@@ -1330,8 +1330,8 @@ I'll help you implement comprehensive database security and meet compliance requ
             estimated_tokens = response_length / 4 if bot_response else 0
             self.consumption_limiter.end_request(session_id, request_id, response_length, estimated_tokens)
         
-        # Add IDP AI Policy compliance footer to AI responses
-        if bot_response and not bot_response.startswith("🏢 **DB-Buddy"):
+        # Add IDP AI Policy compliance footer to AI responses (only once)
+        if bot_response and not bot_response.startswith("🏢 **DB-Buddy") and "IDP's SMART AI Golden Rules" not in bot_response:
             # Misinformation validation and enhancement
             validation_result = self.misinformation_validator.validate_response(bot_response)
             if not validation_result['is_valid']:
