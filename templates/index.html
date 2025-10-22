@@ -376,17 +376,17 @@
             <div class="chat-input-container">
                 <div class="input-wrapper">
                     <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
-                    <button onclick="document.getElementById('imageInput').click()" class="attachment-btn" title="Upload Screenshot">
+                    <button onclick="document.getElementById('imageInput').click()" class="attachment-btn tooltip" data-tooltip="Upload Screenshot">
                         <i class="fas fa-image"></i>
                     </button>
                     <textarea id="userInput" placeholder="Type your message here... (Shift+Enter for new line, Enter to send)" onkeydown="handleKeyPress(event)" rows="2"></textarea>
-                    <button onclick="generateReport()" class="report-btn" title="Generate PDF Report">
+                    <button onclick="generateReport()" class="report-btn tooltip" data-tooltip="Generate PDF Report">
                         <i class="fas fa-file-pdf"></i>
                     </button>
-                    <button onclick="toggleNLSQL()" class="nl-sql-btn" title="Natural Language SQL">
+                    <button onclick="toggleNLSQL()" class="nl-sql-btn tooltip" data-tooltip="Natural Language SQL">
                         <i class="fas fa-robot"></i>
                     </button>
-                    <button onclick="sendAnswer()" id="sendBtn" class="send-btn">
+                    <button onclick="sendAnswer()" id="sendBtn" class="send-btn tooltip" data-tooltip="Send Message">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
